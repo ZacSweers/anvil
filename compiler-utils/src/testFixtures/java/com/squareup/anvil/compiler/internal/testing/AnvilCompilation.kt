@@ -61,6 +61,8 @@ public class AnvilCompilation internal constructor(
       componentRegistrars = listOf(anvilComponentRegistrar)
       if (enableDaggerAnnotationProcessor) {
         annotationProcessors = listOf(ComponentProcessor(), AutoAnnotationProcessor())
+        // https://dagger.dev/dev-guide/compiler-options#ignore-provision-key-wildcards
+        kaptArgs["dagger.ignoreProvisionKeyWildcards"] = "ENABLED"
       }
 
       val anvilCommandLineProcessor = AnvilCommandLineProcessor()
