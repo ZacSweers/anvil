@@ -358,7 +358,7 @@ class IncrementalTest : BaseGradleTest() {
 
   @TestFactory
   fun `compilation re-runs when a @ContributesBinding type supertype changes`() = testFactory {
-
+    // TODO fix
     fun DirectoryBuilder.otherClassContent(
       superType: String,
       packageName: String = "com.squareup.test",
@@ -406,13 +406,17 @@ class IncrementalTest : BaseGradleTest() {
 
     val otherClassFactory = rootAnvilMainGenerated
       .resolve("com/squareup/test/OtherClass_Factory.kt")
-    val otherClassHint = rootAnvilMainGenerated
-      .anvilHintBinding
-      .resolve("com/squareup/test/OtherClass.kt")
+    val otherClassAHint = rootAnvilMainGenerated
+      .anvilHintMerge
+      .resolve("com/squareup/test/OtherClassAsComSquareupTestTypeAToKotlinAnyBindingModule.kt")
+    val otherClassBHint = rootAnvilMainGenerated
+      .anvilHintMerge
+      .resolve("com/squareup/test/OtherClassAsComSquareupTestTypeBToKotlinAnyBindingModule.kt")
 
     rootAnvilMainGenerated.injectClassFactory.shouldExist()
     otherClassFactory.shouldExist()
-    otherClassHint.shouldExist()
+    otherClassAHint.shouldExist()
+    otherClassBHint.shouldNotExist()
 
     rootProject.classGraphResult().allBoundTypes() shouldBe listOf(
       "com.squareup.test.OtherClass" to "com.squareup.test.TypeA",
@@ -429,8 +433,8 @@ class IncrementalTest : BaseGradleTest() {
     }
 
     rootAnvilMainGenerated.injectClassFactory.shouldExist()
-    otherClassFactory.shouldExist()
-    otherClassHint.shouldExist()
+    otherClassAHint.shouldNotExist()
+    otherClassBHint.shouldExist()
 
     rootProject.classGraphResult().allBoundTypes() shouldBe listOf(
       "com.squareup.test.OtherClass" to "com.squareup.test.TypeB",
@@ -439,6 +443,7 @@ class IncrementalTest : BaseGradleTest() {
 
   @TestFactory
   fun `compilation re-runs when a dependency module's @ContributesBinding type supertype changes`() =
+    // TODO fix
     testFactory {
 
       fun DirectoryBuilder.otherClassContent(
