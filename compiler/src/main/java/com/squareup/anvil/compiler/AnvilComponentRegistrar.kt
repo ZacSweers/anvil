@@ -30,6 +30,8 @@ import kotlin.LazyThreadSafetyMode.NONE
 @AutoService(ComponentRegistrar::class)
 public class AnvilComponentRegistrar : ComponentRegistrar {
 
+  override val supportsK2: Boolean = true
+
   private val manuallyAddedCodeGenerators = mutableListOf<CodeGenerator>()
 
   override fun registerProjectComponents(
