@@ -437,7 +437,8 @@ internal fun componentProcessingAndKspParams(
  * 2. Merge annotation (as a [KClass<out Annotation>][KClass]).
  */
 internal fun componentMergingAndMergeAnnotationParams(
-  fullTestRunAnnotations: () -> List<KClass<out Annotation>> = { listOf(MergeSubcomponent::class) },
+  defaultAnnotation: KClass<out Annotation> = MergeComponent::class,
+  fullTestRunAnnotations: List<KClass<out Annotation>> = listOf(MergeSubcomponent::class),
 ): Collection<Any> {
   return cartesianProduct(
     listOf(
@@ -445,9 +446,9 @@ internal fun componentMergingAndMergeAnnotationParams(
       ComponentMergingBackend.KSP,
     ),
     buildList<KClass<out Annotation>> {
-      add(MergeComponent::class)
+      add(defaultAnnotation)
       if (isFullTestRun()) {
-        addAll(fullTestRunAnnotations())
+        addAll(fullTestRunAnnotations)
       }
     },
   ).map { (backend, annotation) -> arrayOf(backend, annotation) }
