@@ -4,6 +4,7 @@ import com.squareup.anvil.annotations.ExperimentalAnvilApi
 import com.squareup.anvil.annotations.MergeComponent
 import com.squareup.anvil.annotations.MergeSubcomponent
 import com.squareup.anvil.annotations.compat.MergeModules
+import com.squareup.anvil.compiler.internal.capitalize
 import kotlin.reflect.KClass
 
 @ExperimentalAnvilApi
@@ -29,4 +30,9 @@ public fun Class<*>.anyDaggerComponent(annotationClass: KClass<*>): AnyDaggerCom
     }
     else -> throw IllegalArgumentException("Cannot handle $annotationClass")
   }
+}
+
+@ExperimentalAnvilApi
+public fun Class<*>.generatedMergedComponent(): Class<*> {
+  return classLoader.loadClass(packageName() + "Anvil" + simpleName.capitalize())
 }
