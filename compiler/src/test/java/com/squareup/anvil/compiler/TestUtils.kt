@@ -47,9 +47,9 @@ internal fun compile(
   trackSourceFiles: Boolean = true,
   codeGenerators: List<CodeGenerator> = emptyList(),
   allWarningsAsErrors: Boolean = true,
-  mode: AnvilCompilationMode = AnvilCompilationMode.Embedded(codeGenerators),
+  mode: AnvilCompilationMode = if (componentProcessingMode == ComponentProcessingMode.KSP) Ksp() else Embedded(codeGenerators),
   workingDir: File? = null,
-  expectExitCode: KotlinCompilation.ExitCode = KotlinCompilation.ExitCode.OK,
+  expectExitCode: ExitCode = ExitCode.OK,
   block: JvmCompilationResult.() -> Unit = { },
 ): JvmCompilationResult = compileAnvil(
   sources = sources,
@@ -399,12 +399,8 @@ internal fun componentProcessingAndKspParams(
       kspCreator(),
     ),
   ).mapNotNull { (componentProcessingMode, mode) ->
-    if (componentProcessingMode == ComponentProcessingMode.KSP) {
-      // TODO KSP component processing is not supported with KSP in Anvil's tests yet
-      return@mapNotNull null
-    }
-    if (componentProcessingMode != ComponentProcessingMode.NONE && mode is Ksp) {
-      // TODO Dagger is not supported with KSP in Anvil's tests yet
+    if (componentProcessingMode == ComponentProcessingMode.KAPT && mode !is Ksp) {
+      // TODO Dagger KAPT/IR is not compatible with KSP
       null
     } else {
       arrayOf(componentProcessingMode, mode)
