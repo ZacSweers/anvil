@@ -29,6 +29,7 @@ import com.squareup.anvil.compiler.codegen.ksp.exclude
 import com.squareup.anvil.compiler.codegen.ksp.find
 import com.squareup.anvil.compiler.codegen.ksp.findAll
 import com.squareup.anvil.compiler.codegen.ksp.getSymbolsWithAnnotations
+import com.squareup.anvil.compiler.codegen.ksp.includes
 import com.squareup.anvil.compiler.codegen.ksp.isAnnotationPresent
 import com.squareup.anvil.compiler.codegen.ksp.isInterface
 import com.squareup.anvil.compiler.codegen.ksp.modules
@@ -55,6 +56,7 @@ import com.squareup.kotlinpoet.ksp.writeTo
 import dagger.Component
 import dagger.Module
 import org.jetbrains.kotlin.name.Name
+import java.util.Locale
 
 /**
  * A [com.google.devtools.ksp.processing.SymbolProcessor] that performs the two types of merging
@@ -92,6 +94,8 @@ internal class KspContributionMerger(override val env: SymbolProcessorEnvironmen
       contributesSubcomponentFqName,
     )
 
+    // TODO if we have module or interface merging, should we defer merging components too?
+    //  Or can we do them in a single pass?
     val shouldDefer = contributingAnnotations.toList().isNotEmpty()
 
     val deferred = resolver.getSymbolsWithAnnotations(
@@ -127,11 +131,14 @@ internal class KspContributionMerger(override val env: SymbolProcessorEnvironmen
 
     val moduleMergerAnnotations = mergeComponentAnnotations + mergeModulesAnnotations
 
+    val isModule = mergeModulesAnnotations.isNotEmpty()
+
     val daggerAnnotation = if (moduleMergerAnnotations.isNotEmpty()) {
       generateDaggerAnnotation(
         annotations = moduleMergerAnnotations,
         resolver = resolver,
         declaration = mergeAnnotatedClass,
+        isModule = isModule,
       )
     } else {
       null
@@ -164,6 +171,7 @@ internal class KspContributionMerger(override val env: SymbolProcessorEnvironmen
       mergeAnnotatedClass = mergeAnnotatedClass,
       daggerAnnotation = daggerAnnotation,
       contributedInterfaces = contributedInterfaces,
+      isModule = isModule,
     )
     return null
   }
@@ -172,11 +180,16 @@ internal class KspContributionMerger(override val env: SymbolProcessorEnvironmen
     annotations: List<KSAnnotation>,
     resolver: Resolver,
     declaration: KSClassDeclaration,
+    isModule: Boolean,
   ): AnnotationSpec {
     val daggerAnnotationClassName = annotations[0].daggerAnnotationClassName
 
     val scopes = annotations.map { it.scope() }
-    val predefinedModules = annotations.flatMap { it.modules() }
+    val predefinedModules = if (isModule) {
+      annotations.flatMap { it.includes() }
+    } else {
+      annotations.flatMap { it.modules() }
+    }
 
     val allContributesAnnotations: List<KSAnnotation> = annotations
       .asSequence()
@@ -233,6 +246,8 @@ internal class KspContributionMerger(override val env: SymbolProcessorEnvironmen
 
     val excludedModules = annotations
       .flatMap { it.exclude() }
+      .asSequence()
+      .resolveMergedTypes(resolver)
       .onEach { excludedClass ->
 
         // Verify that the replaced classes use the same scope.
@@ -276,6 +291,8 @@ internal class KspContributionMerger(override val env: SymbolProcessorEnvironmen
       .flatMap { contributesAnnotation ->
         val contributedClass = contributesAnnotation.declaringClass
         contributesAnnotation.replaces()
+          .asSequence()
+          .resolveMergedTypes(resolver)
           .onEach { classToReplace ->
             // Verify has @Module annotation. It doesn't make sense for a Dagger module to
             // replace a non-Dagger module.
@@ -378,9 +395,14 @@ internal class KspContributionMerger(override val env: SymbolProcessorEnvironmen
       .distinct()
       .toList()
 
+    val parameterName = if (isModule) {
+      "includes"
+    } else {
+      "modules"
+    }
     return AnnotationSpec.builder(daggerAnnotationClassName)
       .addMember(
-        "modules = [%L]",
+        "$parameterName = [%L]",
         contributedModules.map { CodeBlock.of("%T::class", it.toClassName()) }.joinToCode(),
       )
       .apply {
@@ -580,6 +602,7 @@ internal class KspContributionMerger(override val env: SymbolProcessorEnvironmen
     mergeAnnotatedClass: KSClassDeclaration,
     daggerAnnotation: AnnotationSpec?,
     contributedInterfaces: List<KSType>?,
+    isModule: Boolean,
   ) {
     // TODO this doesn't work yet for interface merging or module merging
     // TODO what's the generated merged module or merged interface called?
@@ -592,7 +615,9 @@ internal class KspContributionMerger(override val env: SymbolProcessorEnvironmen
       "Anvil${mergeAnnotatedClass.simpleName.asString().capitalize()}",
     )
       .apply {
-        addSuperinterface(mergeAnnotatedClass.toClassName())
+        if (!isModule) {
+          addSuperinterface(mergeAnnotatedClass.toClassName())
+        }
         daggerAnnotation?.let { addAnnotation(it) }
 
         contributedInterfaces?.forEach { contributedInterface ->
@@ -607,7 +632,10 @@ internal class KspContributionMerger(override val env: SymbolProcessorEnvironmen
               factoryOrBuilderFunSpec = FunSpec.builder("factory")
                 .returns(generatedComponentClassName.nestedClass(it.simpleName.asString()))
                 .addStatement(
-                  "return Dagger${mergeAnnotatedClass.simpleName.asString().capitalize()}.factory()",
+                  "return Dagger${
+                    mergeAnnotatedClass.simpleName.asString()
+                      .capitalize()
+                  }.factory()",
                 )
                 .build()
               return@singleOrNull true
@@ -616,7 +644,10 @@ internal class KspContributionMerger(override val env: SymbolProcessorEnvironmen
               factoryOrBuilderFunSpec = FunSpec.builder("builder")
                 .returns(generatedComponentClassName.nestedClass(it.simpleName.asString()))
                 .addStatement(
-                  "return Dagger${mergeAnnotatedClass.simpleName.asString().capitalize()}.builder()",
+                  "return Dagger${
+                    mergeAnnotatedClass.simpleName.asString()
+                      .capitalize()
+                  }.builder()",
                 )
                 .build()
               return@singleOrNull true
@@ -839,4 +870,27 @@ private fun KSClassDeclaration.extendFactoryOrBuilder(
       }
     }
     .build()
+}
+
+private fun Sequence<KSClassDeclaration>.resolveMergedTypes(resolver: Resolver): Sequence<KSClassDeclaration> {
+  return map { it.resolveMergedType(resolver) }
+}
+
+private fun KSClassDeclaration.resolveMergedType(resolver: Resolver): KSClassDeclaration {
+  val isMergedType = hasAnnotation(mergeModulesFqName.asString()) ||
+    hasAnnotation(mergeInterfacesFqName.asString())
+  return if (isMergedType) {
+    resolver.getClassDeclarationByName(
+      resolver.getKSNameFromString(
+        packageName.asString() + ".Anvil" + simpleName.asString().capitalize(
+          Locale.US,
+        ),
+      ),
+    ) ?: throw KspAnvilException(
+      message = "Could not find merged module/interface for ${qualifiedName?.asString()}",
+      node = this,
+    )
+  } else {
+    this
+  }
 }
