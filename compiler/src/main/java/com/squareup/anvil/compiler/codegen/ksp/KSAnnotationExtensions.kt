@@ -81,7 +81,7 @@ internal fun <T : KSAnnotation> List<T>.checkNoDuplicateScopeAndBoundType(
 internal fun KSAnnotation.scope(): KSType =
   scopeOrNull()
     ?: throw KspAnvilException(
-      message = "Couldn't find scope for ${annotationType.resolve().declaration.qualifiedName}.",
+      message = "Couldn't find scope for ${annotationType.resolve().declaration.qualifiedName?.asString()}.",
       this,
     )
 
