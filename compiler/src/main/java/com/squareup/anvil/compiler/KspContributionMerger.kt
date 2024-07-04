@@ -16,6 +16,7 @@ import com.google.devtools.ksp.symbol.Visibility
 import com.google.devtools.ksp.symbol.impl.hasAnnotation
 import com.squareup.anvil.annotations.ContributesBinding
 import com.squareup.anvil.annotations.ContributesTo
+import com.squareup.anvil.annotations.compat.MergeModules
 import com.squareup.anvil.compiler.api.ComponentMergingBackend
 import com.squareup.anvil.compiler.codegen.generatedAnvilSubcomponentClassId
 import com.squareup.anvil.compiler.codegen.ksp.AnvilSymbolProcessor
@@ -185,10 +186,19 @@ internal class KspContributionMerger(override val env: SymbolProcessorEnvironmen
     val daggerAnnotationClassName = annotations[0].daggerAnnotationClassName
 
     val scopes = annotations.map { it.scope() }
+    // Any modules that are @MergeModules, we need to include their generated modules instead
     val predefinedModules = if (isModule) {
       annotations.flatMap { it.includes() }
     } else {
       annotations.flatMap { it.modules() }
+    }.map {
+      if (it.isAnnotationPresent<MergeModules>()) {
+        resolver.getClassDeclarationByName(
+          it.packageName.asString() + "." + "Anvil" + it.simpleName.asString().capitalize(),
+        )!!
+      } else {
+        it
+      }
     }
 
     val allContributesAnnotations: List<KSAnnotation> = annotations
