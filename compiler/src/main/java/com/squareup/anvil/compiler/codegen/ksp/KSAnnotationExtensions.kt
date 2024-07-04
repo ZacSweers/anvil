@@ -100,7 +100,6 @@ internal fun KSAnnotation.resolveBoundType(
   // Resolve from the first and only supertype
   return declaringClass.superTypesExcludingAny(resolver)
     .single()
-    .resolve()
     .resolveKSClassDeclaration() ?: throw KspAnvilException(
     message = "Couldn't resolve bound type for ${declaringClass.qualifiedName}",
     node = declaringClass,

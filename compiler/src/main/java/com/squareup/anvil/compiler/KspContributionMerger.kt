@@ -2,6 +2,7 @@ package com.squareup.anvil.compiler
 
 import com.google.auto.service.AutoService
 import com.google.devtools.ksp.getAllSuperTypes
+import com.google.devtools.ksp.getClassDeclarationByName
 import com.google.devtools.ksp.getDeclaredFunctions
 import com.google.devtools.ksp.getVisibility
 import com.google.devtools.ksp.processing.Resolver
@@ -556,21 +557,41 @@ internal class KspContributionMerger(override val env: SymbolProcessorEnvironmen
       }
       .toList()
 
-    val supertypes = mergeAnnotatedClass.superTypesExcludingAny(resolver)
     if (excludedClasses.isNotEmpty()) {
-      val intersect = supertypes
-        .mapNotNull { it.resolve().resolveKSClassDeclaration() }
-        .flatMap {
-          it.getAllSuperTypes()
-        }
+      val intersect = mergeAnnotatedClass
+        .superTypesExcludingAny(resolver)
         .mapNotNull { it.resolveKSClassDeclaration() }
         .toSet()
-        .intersect(excludedClasses.toSet())
+        // Need to intersect with both merged and origin types to be sure
+        .intersect(
+          excludedClasses
+            .flatMap {
+              // TODO if we add a new @InternalMergeMarker annotation, we could store the
+              //  origin type in it and look for it here
+              if (it.simpleName.asString().startsWith("Anvil")) {
+                val foundMergeAnnotations = it.findAll(
+                  mergeInterfacesFqName.asString(),
+                  mergeComponentFqName.asString(),
+                  mergeSubcomponentFqName.asString(),
+                )
+                if (foundMergeAnnotations.isNotEmpty()) {
+                  // It's a merged type, include the original
+                  val original = resolver.getClassDeclarationByName(
+                    it.packageName.asString() + "." + it.simpleName.asString()
+                      .removePrefix("Anvil"),
+                  )!!
+                  return@flatMap listOf(it, original)
+                }
+              }
+              listOf(it)
+            }
+            .toSet(),
+        )
 
       if (intersect.isNotEmpty()) {
         throw KspAnvilException(
           node = mergeAnnotatedClass,
-          message = "${mergeAnnotatedClass.qualifiedName?.asString()} excludes types that it implements or " +
+          message = "${mergeAnnotatedClass.simpleName.asString()} excludes types that it implements or " +
             "extends. These types cannot be excluded. Look at all the super types to find these " +
             "classes: ${intersect.joinToString { it.qualifiedName?.asString()!! }}.",
         )
@@ -872,7 +893,9 @@ private fun KSClassDeclaration.extendFactoryOrBuilder(
     .build()
 }
 
-private fun Sequence<KSClassDeclaration>.resolveMergedTypes(resolver: Resolver): Sequence<KSClassDeclaration> {
+private fun Sequence<KSClassDeclaration>.resolveMergedTypes(
+  resolver: Resolver
+): Sequence<KSClassDeclaration> {
   return map { it.resolveMergedType(resolver) }
 }
 
