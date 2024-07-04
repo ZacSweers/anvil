@@ -107,23 +107,20 @@ internal fun KSAnnotation.resolveBoundType(
   )
 }
 
-@Suppress("UNCHECKED_CAST")
-internal fun KSAnnotation.replaces(): List<KSClassDeclaration> =
-  (argumentAt("replaces")?.value as? List<KSType>).orEmpty().map {
-    it.resolveKSClassDeclaration()
-      ?: throw KspAnvilException("Could not resolve replaces type $it}", this)
-  }
+internal fun KSAnnotation.replaces(): List<KSClassDeclaration> = classArrayArgument("replaces")
+
+internal fun KSAnnotation.subcomponents(): List<KSClassDeclaration> = classArrayArgument("subcomponents")
+
+internal fun KSAnnotation.exclude(): List<KSClassDeclaration> = classArrayArgument("exclude")
+
+internal fun KSAnnotation.modules(): List<KSClassDeclaration> = classArrayArgument("modules")
+
+internal fun KSAnnotation.includes(): List<KSClassDeclaration> = classArrayArgument("includes")
 
 @Suppress("UNCHECKED_CAST")
-internal fun KSAnnotation.exclude(): List<KSClassDeclaration> =
-  (argumentAt("exclude")?.value as? List<KSType>).orEmpty().map {
-    it.resolveKSClassDeclaration() ?: throw KspAnvilException("Could not resolve exclude $it", this)
-  }
-
-@Suppress("UNCHECKED_CAST")
-internal fun KSAnnotation.modules(): List<KSClassDeclaration> =
-  (argumentAt("modules")?.value as? List<KSType>).orEmpty().map {
-    it.resolveKSClassDeclaration() ?: throw KspAnvilException("Could not resolve modules $it", this)
+private fun KSAnnotation.classArrayArgument(name: String): List<KSClassDeclaration> =
+  (argumentAt(name)?.value as? List<KSType>).orEmpty().map {
+    it.resolveKSClassDeclaration() ?: throw KspAnvilException("Could not resolve $name $it", this)
   }
 
 internal fun KSAnnotation.parentScope(): KSClassDeclaration {
