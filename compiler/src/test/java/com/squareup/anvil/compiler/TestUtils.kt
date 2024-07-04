@@ -416,12 +416,15 @@ internal fun componentProcessingAndKspParams(
       kspCreator(),
     ),
   ).mapNotNull { (componentProcessingMode, mode) ->
-    if (componentProcessingMode == ComponentProcessingMode.KAPT && mode !is Ksp) {
-      // TODO Dagger KAPT/IR is not compatible with KSP
-      null
-    } else {
-      arrayOf(componentProcessingMode, mode)
+    if (componentProcessingMode == ComponentProcessingMode.KSP && mode !is Ksp) {
+      // KSP component processing requires KSP all the way down
+      return@mapNotNull null
+    } else if (componentProcessingMode == ComponentProcessingMode.KAPT && mode is Ksp) {
+      // In K1, kapt is always run before KSP so we can't run KSP contribution here in time
+      // TODO in K2, KCT can run KSP2 before kapt
+      return@mapNotNull null
     }
+    arrayOf(componentProcessingMode, mode)
   }.distinct()
 }
 
