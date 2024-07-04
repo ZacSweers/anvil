@@ -84,9 +84,15 @@ internal class KspContributionMerger(override val env: SymbolProcessorEnvironmen
   override fun processChecked(
     resolver: Resolver,
   ): List<KSAnnotated> {
-    // TODO how do we ensure this runs last?
-    //  - run all other processors first?
-    //  - check no *Contributes symbols are left?
+    // If there's any remaining `@Contributes*`-annotated classes, defer to a later round
+    val contributingAnnotations = resolver.getSymbolsWithAnnotations(
+      contributesToFqName,
+      contributesBindingFqName,
+      contributesMultibindingFqName,
+      contributesSubcomponentFqName,
+    )
+
+    val shouldDefer = contributingAnnotations.toList().isNotEmpty()
 
     val deferred = resolver.getSymbolsWithAnnotations(
       mergeComponentFqName,
@@ -94,6 +100,11 @@ internal class KspContributionMerger(override val env: SymbolProcessorEnvironmen
       mergeModulesFqName,
       mergeInterfacesFqName,
     ).validate { deferred -> return deferred }
+      .also { mergeAnnotations ->
+        if (shouldDefer) {
+          return mergeAnnotations
+        }
+      }
       .mapNotNull { annotated ->
         processClass(resolver, annotated)
       }
