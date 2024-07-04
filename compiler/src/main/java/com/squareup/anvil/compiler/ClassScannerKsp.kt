@@ -5,6 +5,7 @@ import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 import com.google.devtools.ksp.symbol.KSType
+import com.google.devtools.ksp.symbol.KSTypeReference
 import com.squareup.anvil.compiler.ClassScannerKsp.GeneratedProperty.ReferenceProperty
 import com.squareup.anvil.compiler.ClassScannerKsp.GeneratedProperty.ScopeProperty
 import com.squareup.anvil.compiler.api.AnvilCompilationException
@@ -16,6 +17,11 @@ import org.jetbrains.kotlin.name.FqName
 internal class ClassScannerKsp {
 
   private val cache = mutableMapOf<CacheKey, Collection<List<GeneratedProperty>>>()
+
+  private fun KSTypeReference.resolveKClassType(): KSType {
+    return resolve()
+      .arguments.single().type!!.resolve()
+  }
 
   /**
    * Returns a sequence of contributed classes from the dependency graph. Note that the result
@@ -55,14 +61,17 @@ internal class ClassScannerKsp {
               message = "Couldn't find any scope for a generated hint: ${properties[0].baseName}.",
             )
           }
-          .map { it.declaration.type.resolve() }
+          .map {
+            it.declaration.type.resolveKClassType()
+          }
 
         // Look for the right scope even before resolving the class and resolving all its super
         // types.
         if (scope != null && scope !in scopes) return@mapNotNull null
 
         reference.declaration.type
-          .resolve().resolveKSClassDeclaration()
+          .resolveKClassType()
+          .resolveKSClassDeclaration()
       }
       .filter { clazz ->
         // Check that the annotation really is present. It should always be the case, but it's
