@@ -39,7 +39,7 @@ class ModuleMergerTest(
     }
   }
 
-  @Ignore @Test fun `Dagger modules are empty without arguments`() {
+  @Test fun `Dagger modules are empty without arguments`() {
     compile(
       """
       package com.squareup.test
