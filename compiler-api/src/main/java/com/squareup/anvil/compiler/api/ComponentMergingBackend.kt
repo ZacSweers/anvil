@@ -14,10 +14,7 @@ public enum class ComponentMergingBackend {
 
   public companion object {
     public fun fromString(value: String): ComponentMergingBackend? {
-      // We call it kapt processing in testing, but the actual name here is IR.
-      // TODO consolidate?
       val uppercase = value.uppercase(Locale.US)
-        .let { if (it == "KAPT") IR.name else it }
       return ComponentMergingBackend.entries.find { it.name == uppercase }
     }
   }
