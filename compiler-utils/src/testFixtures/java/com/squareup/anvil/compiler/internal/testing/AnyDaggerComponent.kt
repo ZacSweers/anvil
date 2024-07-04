@@ -15,24 +15,34 @@ public interface AnyDaggerComponent {
 
 @ExperimentalAnvilApi
 public fun Class<*>.anyDaggerComponent(annotationClass: KClass<*>): AnyDaggerComponent {
+  val classToCheck = generatedMergedComponent() ?: this
   return when (annotationClass) {
     MergeComponent::class -> object : AnyDaggerComponent {
-      override val modules: List<KClass<*>> = daggerComponent.modules.toList()
-      override val dependencies: List<KClass<*>> = daggerComponent.dependencies.toList()
+      override val modules: List<KClass<*>> = classToCheck.daggerComponent.modules.toList()
+      override val dependencies: List<KClass<*>> =
+        classToCheck.daggerComponent.dependencies.toList()
     }
     MergeSubcomponent::class -> object : AnyDaggerComponent {
-      override val modules: List<KClass<*>> = daggerSubcomponent.modules.toList()
+      override val modules: List<KClass<*>> = classToCheck.daggerSubcomponent.modules.toList()
       override val dependencies: List<KClass<*>> get() = throw IllegalAccessException()
     }
     MergeModules::class -> object : AnyDaggerComponent {
-      override val modules: List<KClass<*>> = daggerModule.includes.toList()
+      override val modules: List<KClass<*>> = classToCheck.daggerModule.includes.toList()
       override val dependencies: List<KClass<*>> get() = throw IllegalAccessException()
     }
     else -> throw IllegalArgumentException("Cannot handle $annotationClass")
   }
 }
 
+/**
+ * If there's a generated merged component, returns that [Class]. This would imply that this was
+ * generated under KSP.
+ */
 @ExperimentalAnvilApi
-public fun Class<*>.generatedMergedComponent(): Class<*> {
-  return classLoader.loadClass(packageName() + "Anvil" + simpleName.capitalize())
+public fun Class<*>.generatedMergedComponent(): Class<*>? {
+  return try {
+    classLoader.loadClass(packageName() + "Anvil" + simpleName.capitalize())
+  } catch (e: ClassNotFoundException) {
+    null
+  }
 }
