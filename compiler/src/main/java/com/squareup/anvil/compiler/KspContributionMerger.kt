@@ -386,11 +386,12 @@ internal class KspContributionMerger(override val env: SymbolProcessorEnvironmen
       .apply {
         fun copyArrayValue(name: String) {
           val varargArguments = annotations
-            .mapNotNull {
+            .mapNotNull { annotation ->
               @Suppress("UNCHECKED_CAST")
-              (it.argumentAt(name)?.value as? List<KSType>?)
+              (annotation.argumentAt(name)?.value as? List<KSType>?)
                 ?.map { it.toClassName() }
             }
+            .flatten()
             .ifEmpty { return }
 
           addMember(
