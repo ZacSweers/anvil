@@ -21,12 +21,12 @@ import com.squareup.anvil.compiler.internal.testing.AnvilCompilationMode.Embedde
 import com.squareup.anvil.compiler.internal.testing.AnvilCompilationMode.Ksp
 import com.squareup.anvil.compiler.internal.testing.ComponentProcessingMode
 import com.squareup.anvil.compiler.internal.testing.compileAnvil
-import com.squareup.anvil.compiler.internal.testing.generatedMergedComponent
+import com.squareup.anvil.compiler.internal.testing.generatedMergedComponentOrNull
+import com.squareup.anvil.compiler.internal.testing.resolveIfMerged
 import com.squareup.anvil.compiler.internal.testing.use
 import com.squareup.kotlinpoet.asClassName
 import com.tschuchort.compiletesting.CompilationResult
 import com.tschuchort.compiletesting.JvmCompilationResult
-import com.tschuchort.compiletesting.KotlinCompilation
 import com.tschuchort.compiletesting.KotlinCompilation.ExitCode
 import com.tschuchort.compiletesting.KotlinCompilation.ExitCode.COMPILATION_ERROR
 import com.tschuchort.compiletesting.KotlinCompilation.ExitCode.INTERNAL_ERROR
@@ -93,18 +93,15 @@ internal val JvmCompilationResult.parentInterface2: Class<*>
 
 internal val JvmCompilationResult.componentInterface: Class<*>
   get() = classLoader.loadClass("com.squareup.test.ComponentInterface")
-    .let {
-      it.generatedMergedComponent() ?: it
-    }
+    .resolveIfMerged()
 
 internal val JvmCompilationResult.subcomponentInterface: Class<*>
   get() = classLoader.loadClass("com.squareup.test.SubcomponentInterface")
-    .let {
-      it.generatedMergedComponent() ?: it
-    }
+    .resolveIfMerged()
 
 internal val JvmCompilationResult.daggerModule1: Class<*>
   get() = classLoader.loadClass("com.squareup.test.DaggerModule1")
+    .resolveIfMerged()
 
 internal val JvmCompilationResult.assistedService: Class<*>
   get() = classLoader.loadClass("com.squareup.test.AssistedService")
@@ -114,12 +111,15 @@ internal val JvmCompilationResult.assistedServiceFactory: Class<*>
 
 internal val JvmCompilationResult.daggerModule2: Class<*>
   get() = classLoader.loadClass("com.squareup.test.DaggerModule2")
+    .resolveIfMerged()
 
 internal val JvmCompilationResult.daggerModule3: Class<*>
   get() = classLoader.loadClass("com.squareup.test.DaggerModule3")
+    .resolveIfMerged()
 
 internal val JvmCompilationResult.daggerModule4: Class<*>
   get() = classLoader.loadClass("com.squareup.test.DaggerModule4")
+    .resolveIfMerged()
 
 internal val JvmCompilationResult.innerModule: Class<*>
   get() = classLoader.loadClass("com.squareup.test.ComponentInterface\$InnerModule")
@@ -274,7 +274,7 @@ internal fun Class<*>.mergedModules(mergeAnnotation: KClass<out Annotation>): Ar
     else -> error("Unknown merge annotation class: $mergeAnnotation")
   }
 
-  val mergedComponent = generatedMergedComponent() ?: this
+  val mergedComponent = generatedMergedComponentOrNull() ?: this
   return when (val annotation = mergedComponent.getAnnotation(mergedAnnotation.java)) {
     is Component -> annotation.modules
     is Subcomponent -> annotation.modules

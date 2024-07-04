@@ -15,7 +15,7 @@ public interface AnyDaggerComponent {
 
 @ExperimentalAnvilApi
 public fun Class<*>.anyDaggerComponent(annotationClass: KClass<*>): AnyDaggerComponent {
-  val classToCheck = generatedMergedComponent() ?: this
+  val classToCheck = resolveIfMerged()
   return when (annotationClass) {
     MergeComponent::class -> object : AnyDaggerComponent {
       override val modules: List<KClass<*>> = classToCheck.daggerComponent.modules.toList()
@@ -36,10 +36,17 @@ public fun Class<*>.anyDaggerComponent(annotationClass: KClass<*>): AnyDaggerCom
 
 /**
  * If there's a generated merged component, returns that [Class]. This would imply that this was
+ * generated under KSP. Otherwise, returns this [Class].
+ */
+@ExperimentalAnvilApi
+public fun Class<*>.resolveIfMerged(): Class<*> = generatedMergedComponentOrNull() ?: this
+
+/**
+ * If there's a generated merged component, returns that [Class]. This would imply that this was
  * generated under KSP.
  */
 @ExperimentalAnvilApi
-public fun Class<*>.generatedMergedComponent(): Class<*>? {
+public fun Class<*>.generatedMergedComponentOrNull(): Class<*>? {
   return try {
     classLoader.loadClass(packageName() + "Anvil" + simpleName.capitalize())
   } catch (e: ClassNotFoundException) {
