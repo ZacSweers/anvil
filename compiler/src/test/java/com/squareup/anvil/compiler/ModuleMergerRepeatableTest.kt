@@ -28,7 +28,9 @@ class ModuleMergerRepeatableTest(
     @Parameters(name = "{0} - {1}")
     @JvmStatic
     fun annotationClasses(): Collection<Any> {
-      return componentMergingAndMergeAnnotationParams(fullTestRunAnnotations = listOf(MergeSubcomponent::class, MergeModules::class))
+      return componentMergingAndMergeAnnotationParams(
+        fullTestRunAnnotations = listOf(MergeSubcomponent::class, MergeModules::class),
+      )
     }
   }
 

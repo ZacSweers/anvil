@@ -108,7 +108,9 @@ internal fun KSAnnotation.resolveBoundType(
 
 internal fun KSAnnotation.replaces(): List<KSClassDeclaration> = classArrayArgument("replaces")
 
-internal fun KSAnnotation.subcomponents(): List<KSClassDeclaration> = classArrayArgument("subcomponents")
+internal fun KSAnnotation.subcomponents(): List<KSClassDeclaration> = classArrayArgument(
+  "subcomponents",
+)
 
 internal fun KSAnnotation.exclude(): List<KSClassDeclaration> = classArrayArgument("exclude")
 

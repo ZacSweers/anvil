@@ -2500,12 +2500,13 @@ public class InjectClass_Factory<T : List<String>>(
         }
 
       assertThat(typeParams)
-        .containsExactly("T",
+        .containsExactly(
+          "T",
           if (componentProcessingMode == ComponentProcessingMode.KSP) {
             listOf("java.util.List<java.lang.String>")
           } else {
             listOf("java.util.List<? extends java.lang.String>")
-          }
+          },
         )
 
       val constructor = factoryClass.declaredConstructors.single()

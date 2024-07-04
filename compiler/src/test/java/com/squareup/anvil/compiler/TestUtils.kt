@@ -50,7 +50,13 @@ internal fun compile(
   trackSourceFiles: Boolean = true,
   codeGenerators: List<CodeGenerator> = emptyList(),
   allWarningsAsErrors: Boolean = true,
-  mode: AnvilCompilationMode = if (componentProcessingMode == ComponentProcessingMode.KSP || componentMergingBackend == ComponentMergingBackend.KSP) Ksp() else Embedded(codeGenerators),
+  mode: AnvilCompilationMode = if (componentProcessingMode == ComponentProcessingMode.KSP || componentMergingBackend == ComponentMergingBackend.KSP) {
+    Ksp()
+  } else {
+    Embedded(
+      codeGenerators,
+    )
+  },
   workingDir: File? = null,
   expectExitCode: ExitCode = ExitCode.OK,
   block: JvmCompilationResult.() -> Unit = { },

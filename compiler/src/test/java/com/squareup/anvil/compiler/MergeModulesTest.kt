@@ -14,7 +14,7 @@ import org.junit.runners.Parameterized
 
 @RunWith(Parameterized::class)
 class MergeModulesTest(
-  private val backend: ComponentMergingBackend
+  private val backend: ComponentMergingBackend,
 ) {
 
   companion object {
@@ -898,7 +898,11 @@ class MergeModulesTest(
       """,
       componentMergingBackend = backend,
     ) {
-      assertThat(classLoader.loadClass("DaggerModule1").resolveIfMerged().daggerModule.includes.withoutAnvilModules())
+      assertThat(
+        classLoader.loadClass(
+          "DaggerModule1",
+        ).resolveIfMerged().daggerModule.includes.withoutAnvilModules(),
+      )
         .containsExactly(classLoader.loadClass("DaggerModule2").kotlin)
     }
   }

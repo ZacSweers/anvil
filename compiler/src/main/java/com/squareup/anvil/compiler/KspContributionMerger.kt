@@ -1,7 +1,6 @@
 package com.squareup.anvil.compiler
 
 import com.google.auto.service.AutoService
-import com.google.devtools.ksp.getAllSuperTypes
 import com.google.devtools.ksp.getClassDeclarationByName
 import com.google.devtools.ksp.getDeclaredFunctions
 import com.google.devtools.ksp.getVisibility
@@ -894,7 +893,7 @@ private fun KSClassDeclaration.extendFactoryOrBuilder(
 }
 
 private fun Sequence<KSClassDeclaration>.resolveMergedTypes(
-  resolver: Resolver
+  resolver: Resolver,
 ): Sequence<KSClassDeclaration> {
   return map { it.resolveMergedType(resolver) }
 }

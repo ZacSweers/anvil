@@ -26,7 +26,9 @@ class InterfaceMergerRepeatableTest(
     @Parameters(name = "{0} - {1}")
     @JvmStatic
     fun annotationClasses(): Collection<Any> {
-      return componentMergingAndMergeAnnotationParams(fullTestRunAnnotations = listOf(MergeSubcomponent::class, MergeInterfaces::class))
+      return componentMergingAndMergeAnnotationParams(
+        fullTestRunAnnotations = listOf(MergeSubcomponent::class, MergeInterfaces::class),
+      )
     }
   }
 

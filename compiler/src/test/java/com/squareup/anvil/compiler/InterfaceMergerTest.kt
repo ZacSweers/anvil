@@ -28,7 +28,9 @@ class InterfaceMergerTest(
     @Parameters(name = "{0} - {1}")
     @JvmStatic
     fun annotationClasses(): Collection<Any> {
-      return componentMergingAndMergeAnnotationParams(fullTestRunAnnotations = listOf(MergeSubcomponent::class, MergeInterfaces::class))
+      return componentMergingAndMergeAnnotationParams(
+        fullTestRunAnnotations = listOf(MergeSubcomponent::class, MergeInterfaces::class),
+      )
     }
   }
 
@@ -519,11 +521,11 @@ class InterfaceMergerTest(
       assertThat(componentInterface extends innerInterface).isTrue()
       assertThat(componentInterface.interfaces).hasLength(
         // In KSP, this will be the generated class and extend the annotated interface
-        if (backend == ComponentMergingBackend.KSP) 2 else 1
+        if (backend == ComponentMergingBackend.KSP) 2 else 1,
       )
       assertThat(subcomponentInterface.interfaces).hasLength(
         // In KSP, this will be the generated class and extend the annotated interface
-        if (backend == ComponentMergingBackend.KSP) 1 else 0
+        if (backend == ComponentMergingBackend.KSP) 1 else 0,
       )
     }
   }
