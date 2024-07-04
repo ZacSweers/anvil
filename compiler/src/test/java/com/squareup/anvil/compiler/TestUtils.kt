@@ -78,6 +78,7 @@ internal val JvmCompilationResult.contributingInterface: Class<*>
 
 internal val JvmCompilationResult.secondContributingInterface: Class<*>
   get() = classLoader.loadClass("com.squareup.test.SecondContributingInterface")
+    .resolveIfMerged()
 
 internal val JvmCompilationResult.innerInterface: Class<*>
   get() = classLoader.loadClass("com.squareup.test.SomeClass\$InnerInterface")
