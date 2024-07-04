@@ -17,7 +17,6 @@ import com.tschuchort.compiletesting.kspArgs
 import com.tschuchort.compiletesting.kspWithCompilation
 import com.tschuchort.compiletesting.symbolProcessorProviders
 import dagger.internal.codegen.ComponentProcessor
-import dagger.internal.codegen.KspComponentProcessor
 import org.intellij.lang.annotations.Language
 import org.jetbrains.kotlin.config.JvmTarget
 import java.io.File
@@ -46,7 +45,7 @@ public class AnvilCompilation internal constructor(
     disableComponentMerging: Boolean = false,
     enableExperimentalAnvilApis: Boolean = true,
     trackSourceFiles: Boolean = true,
-    mode: AnvilCompilationMode = Embedded(emptyList()),
+    mode: AnvilCompilationMode = if (componentProcessingMode == ComponentProcessingMode.KSP) Ksp() else Embedded(),
     enableAnvil: Boolean = true,
   ): AnvilCompilation = apply {
     checkNotCompiled()
@@ -66,14 +65,10 @@ public class AnvilCompilation internal constructor(
           annotationProcessors = listOf(ComponentProcessor(), AutoAnnotationProcessor())
         }
         ComponentProcessingMode.KSP -> {
-          symbolProcessorProviders +=
-            listOf(
-              // TODO add KSP contribution merger here
-              KspComponentProcessor.Provider(),
-            )
-          // Run KSP in a single-pass
-          // https://kotlinlang.slack.com/archives/C013BA8EQSE/p1639462548225400?thread_ts=1639433474.224900&cid=C013BA8EQSE
-          kspWithCompilation = true
+          // Dagger and Anvil processors are loaded via service loading later
+          check(mode is Ksp) {
+            "AnvilCompilationMode.Ksp mode must be used when component processing mode is KSP."
+          }
         }
         ComponentProcessingMode.NONE -> {
           // Do nothing
@@ -83,7 +78,7 @@ public class AnvilCompilation internal constructor(
       val anvilCommandLineProcessor = AnvilCommandLineProcessor()
       commandLineProcessors = listOf(anvilCommandLineProcessor)
 
-      pluginOptions = mutableListOf(
+      pluginOptions += listOf(
         PluginOption(
           pluginId = anvilCommandLineProcessor.pluginId,
           optionName = "disable-component-merging",
@@ -93,6 +88,11 @@ public class AnvilCompilation internal constructor(
           pluginId = anvilCommandLineProcessor.pluginId,
           optionName = "analysis-backend",
           optionValue = mode.analysisBackend.name.lowercase(Locale.US),
+        ),
+        PluginOption(
+          pluginId = anvilCommandLineProcessor.pluginId,
+          optionName = "merging-backend",
+          optionValue = componentProcessingMode.name.lowercase(Locale.US),
         ),
       )
 
@@ -151,20 +151,18 @@ public class AnvilCompilation internal constructor(
               ServiceLoader.load(
                 SymbolProcessorProvider::class.java,
                 SymbolProcessorProvider::class.java.classLoader,
-              )
-                // TODO for now, we don't want to run the dagger KSP processor while we're testing
-                //  KSP. This will change when we start supporting dagger-KSP, at which point we can
-                //  change this filter to be based on https://github.com/square/anvil/pull/713
-                .filterNot { it is KspComponentProcessor.Provider },
+              ),
             )
             addAll(mode.symbolProcessorProviders)
           }
-          // Run KSP embedded directly within this kotlinc invocation
+          // Run KSP in a single-pass. Does nothing in KSP2, but in KSP1 will run embedded within kotlinc
+          // https://kotlinlang.slack.com/archives/C013BA8EQSE/p1639462548225400?thread_ts=1639433474.224900&cid=C013BA8EQSE
           kspWithCompilation = true
           kspArgs["will-have-dagger-factories"] = generateDaggerFactories.toString()
           kspArgs["generate-dagger-factories"] = generateDaggerFactories.toString()
           kspArgs["generate-dagger-factories-only"] = generateDaggerFactoriesOnly.toString()
           kspArgs["disable-component-merging"] = disableComponentMerging.toString()
+          kspArgs["merging-backend"] = componentProcessingMode.name.lowercase(Locale.US)
         }
       }
 
@@ -321,7 +319,7 @@ public fun compileAnvil(
   enableExperimentalAnvilApis: Boolean = true,
   trackSourceFiles: Boolean = true,
   previousCompilationResult: JvmCompilationResult? = null,
-  mode: AnvilCompilationMode = Embedded(emptyList()),
+  mode: AnvilCompilationMode = if (componentProcessingMode == ComponentProcessingMode.KSP) Ksp() else Embedded(),
   moduleName: String? = null,
   jvmTarget: JvmTarget? = null,
   expectExitCode: KotlinCompilation.ExitCode? = null,
