@@ -147,9 +147,6 @@ internal object ContributesToCodeGen : AnvilApplicabilityChecker {
 
           try {
             generate(clazz.toClassName(), scopes)
-              .also {
-                env.logger.info("Writing hint file for contributed class: ${it.name}")
-              }
               .writeTo(
                 codeGenerator = env.codeGenerator,
                 aggregating = false,
