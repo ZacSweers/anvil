@@ -5,6 +5,7 @@ import com.squareup.anvil.annotations.MergeComponent
 import com.squareup.anvil.annotations.MergeSubcomponent
 import com.squareup.anvil.annotations.compat.MergeModules
 import com.squareup.anvil.compiler.internal.mergedClassName
+import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.DelicateKotlinPoetApi
 import com.squareup.kotlinpoet.asClassName
 import kotlin.reflect.KClass
@@ -51,7 +52,12 @@ public fun Class<*>.resolveIfMerged(): Class<*> = generatedMergedComponentOrNull
 @ExperimentalAnvilApi
 public fun Class<*>.generatedMergedComponentOrNull(): Class<*>? {
   return try {
-    val expected = asClassName().mergedClassName().reflectionName()
+    val currentClassName = if (packageName().isEmpty()) {
+      ClassName("", canonicalName.split("."))
+    } else {
+      asClassName()
+    }
+    val expected = currentClassName.mergedClassName().reflectionName()
     classLoader.loadClass(expected)
   } catch (e: ClassNotFoundException) {
     null
