@@ -397,10 +397,14 @@ internal class KspContributionMerger(override val env: SymbolProcessorEnvironmen
 
         if (originClass.toClassName()
             .let { it in excludedModules || it in replacedModules }
-        ) return@mapNotNull null
+        ) {
+          return@mapNotNull null
+        }
         if (moduleClass.toClassName()
             .let { it in excludedModules || it in replacedModules }
-        ) return@mapNotNull null
+        ) {
+          return@mapNotNull null
+        }
 
         val boundType = bindingFunction.returnTypeOrNull()!!.resolveKSClassDeclaration()!!
         val isMultibinding =
