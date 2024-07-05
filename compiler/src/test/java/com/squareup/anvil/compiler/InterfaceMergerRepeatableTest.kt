@@ -57,6 +57,8 @@ class InterfaceMergerRepeatableTest(
   }
 
   @Test fun `different kind of merge annotations are forbidden`() {
+    // TODO enable KSP for this once there's a KSP impl of MergeAnnotationsCheckGenerator
+    assumeTrue(backend == ComponentMergingBackend.IR)
     assumeMergeComponent(annotationClass)
 
     compile(
