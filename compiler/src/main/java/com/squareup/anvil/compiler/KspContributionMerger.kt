@@ -263,72 +263,7 @@ internal class KspContributionMerger(override val env: SymbolProcessorEnvironmen
             scope = scope,
           )
           .plus(
-            contributedModulesInRound[scope].orEmpty()
-              .map { contributedModule ->
-                val mergeModulesAnnotation = contributedModule
-                  .getKSAnnotationsByType(MergeModules::class)
-                  .singleOrNull()
-                if (mergeModulesAnnotation != null) {
-                  // Fake the eventually-generated one for simplicity
-                  // This is a type in the current round, so we don't have full type information
-                  // available yet.
-                  val newName = contributedModule.toClassName().mergedClassName()
-
-                  // Copy over the ContributesTo annotation to this new fake too, but we need
-                  // to remap its parent node so that the declaringClass works appropriately
-                  val contributesToAnnotation = contributedModule
-                    .getKSAnnotationsByType(ContributesTo::class)
-                    .single()
-
-                  val newAnnotations =
-                    contributedModule.annotations - mergeModulesAnnotation - contributesToAnnotation
-
-                  // Fake a `@Module` annotation too
-                  object : KSClassDeclaration by contributedModule {
-                    private val newKSClass = this
-
-                    // We also need to fake a `Module` annotation on to this.
-                    val newModuleAnnotation = object : KSAnnotation by mergeModulesAnnotation {
-                      override val annotationType: KSTypeReference
-                        get() = resolver.createKSTypeReferenceFromKSType(
-                          resolver.getClassDeclarationByName<Module>()!!.asType(emptyList()),
-                        )
-                      override val arguments: List<KSValueArgument> =
-                        mergeModulesAnnotation.arguments.filterNot {
-                          it.name?.asString() in setOf(
-                            "scope",
-                            "exclude",
-                          )
-                        }
-                      override val defaultArguments: List<KSValueArgument> =
-                        mergeModulesAnnotation.defaultArguments.filterNot {
-                          it.name?.asString() in setOf(
-                            "scope",
-                            "exclude",
-                          )
-                        }
-                      override val parent: KSNode = newKSClass
-                      override val shortName: KSName = resolver.getKSNameFromString("Module")
-
-                      override fun <D, R> accept(visitor: KSVisitor<D, R>, data: D): R {
-                        throw NotImplementedError()
-                      }
-                    }
-
-                    override val qualifiedName: KSName =
-                      resolver.getKSNameFromString(newName.canonicalName)
-                    override val simpleName: KSName =
-                      resolver.getKSNameFromString(newName.simpleName)
-                    override val annotations: Sequence<KSAnnotation> =
-                      newAnnotations + newModuleAnnotation + object : KSAnnotation by contributesToAnnotation {
-                        override val parent: KSNode = newKSClass
-                      }
-                  }
-                } else {
-                  // Standard contributed module, just use it as-is
-                  contributedModule
-                }
-              },
+            contributorsInRound(resolver, contributedModulesInRound, scope, isModule = true),
           )
       }
       .flatMap { contributedClass ->
@@ -578,11 +513,15 @@ internal class KspContributionMerger(override val env: SymbolProcessorEnvironmen
     val scopes = mergeAnnotations.map { it.scope() }
     val contributesAnnotations = mergeAnnotations
       .flatMap { annotation ->
+        val scope = annotation.scope()
         classScanner
           .findContributedClasses(
             resolver = resolver,
             annotation = contributesToFqName,
-            scope = annotation.scope(),
+            scope = scope,
+          )
+          .plus(
+            contributorsInRound(resolver, contributedInterfacesInRound, scope, isModule = false),
           )
       }
       .asSequence()
@@ -1049,4 +988,93 @@ private fun KSClassDeclaration.resolveMergedType(resolver: Resolver): KSClassDec
   } else {
     this
   }
+}
+
+private fun contributorsInRound(
+  resolver: Resolver,
+  contributedSymbolsInRound: Map<KSType, List<KSClassDeclaration>>,
+  scope: KSType,
+  isModule: Boolean,
+): List<KSClassDeclaration> {
+  return contributedSymbolsInRound[scope].orEmpty()
+    .map { contributedSymbol ->
+      val mergeAnnotation = contributedSymbol
+        .getKSAnnotationsByType(MergeModules::class)
+        .plus(
+          contributedSymbol
+            .getKSAnnotationsByType(MergeInterfaces::class),
+        )
+        .singleOrNull()
+      if (mergeAnnotation != null) {
+        // Fake the eventually-generated one for simplicity
+        // This is a type in the current round, so we don't have full type information
+        // available yet.
+        val newName = contributedSymbol.toClassName().mergedClassName()
+
+        // Copy over the ContributesTo annotation to this new fake too, but we need
+        // to remap its parent node so that the declaringClass works appropriately
+        val contributesToAnnotation = contributedSymbol
+          .getKSAnnotationsByType(ContributesTo::class)
+          .single()
+
+        val newAnnotations =
+          contributedSymbol.annotations - mergeAnnotation - contributesToAnnotation
+
+        // Create a new contributed symbol
+        object : KSClassDeclaration by contributedSymbol {
+          private val newKSClass = this
+
+          // We also need to fake an `@Module` annotation on to this if this is a module
+          private val newModuleAnnotation = if (isModule) {
+            object : KSAnnotation by mergeAnnotation {
+              override val annotationType: KSTypeReference
+                get() = resolver.createKSTypeReferenceFromKSType(
+                  resolver.getClassDeclarationByName<Module>()!!.asType(emptyList()),
+                )
+              override val arguments: List<KSValueArgument> =
+                mergeAnnotation.arguments.filterNot {
+                  it.name?.asString() in setOf(
+                    "scope",
+                    "exclude",
+                  )
+                }
+              override val defaultArguments: List<KSValueArgument> =
+                mergeAnnotation.defaultArguments.filterNot {
+                  it.name?.asString() in setOf(
+                    "scope",
+                    "exclude",
+                  )
+                }
+              override val parent: KSNode = newKSClass
+              override val shortName: KSName = resolver.getKSNameFromString("Module")
+
+              override fun <D, R> accept(visitor: KSVisitor<D, R>, data: D): R {
+                throw NotImplementedError()
+              }
+            }
+          } else {
+            null
+          }
+
+          override val qualifiedName: KSName =
+            resolver.getKSNameFromString(newName.canonicalName)
+          override val simpleName: KSName =
+            resolver.getKSNameFromString(newName.simpleName)
+
+          private val finalNewAnnotations = buildList {
+            addAll(newAnnotations)
+            newModuleAnnotation?.let(::add)
+            add(
+              object : KSAnnotation by contributesToAnnotation {
+                override val parent: KSNode = newKSClass
+              },
+            )
+          }
+          override val annotations: Sequence<KSAnnotation> = finalNewAnnotations.asSequence()
+        }
+      } else {
+        // Standard contributed module, just use it as-is
+        contributedSymbol
+      }
+    }
 }
