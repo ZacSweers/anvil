@@ -4,7 +4,9 @@ import com.squareup.anvil.annotations.ExperimentalAnvilApi
 import com.squareup.anvil.annotations.MergeComponent
 import com.squareup.anvil.annotations.MergeSubcomponent
 import com.squareup.anvil.annotations.compat.MergeModules
-import com.squareup.anvil.compiler.internal.capitalize
+import com.squareup.anvil.compiler.internal.mergedClassName
+import com.squareup.kotlinpoet.DelicateKotlinPoetApi
+import com.squareup.kotlinpoet.asClassName
 import kotlin.reflect.KClass
 
 @ExperimentalAnvilApi
@@ -45,10 +47,12 @@ public fun Class<*>.resolveIfMerged(): Class<*> = generatedMergedComponentOrNull
  * If there's a generated merged component, returns that [Class]. This would imply that this was
  * generated under KSP.
  */
+@OptIn(DelicateKotlinPoetApi::class)
 @ExperimentalAnvilApi
 public fun Class<*>.generatedMergedComponentOrNull(): Class<*>? {
   return try {
-    classLoader.loadClass(packageName() + "Anvil" + simpleName.capitalize())
+    val expected = asClassName().mergedClassName().reflectionName()
+    classLoader.loadClass(expected)
   } catch (e: ClassNotFoundException) {
     null
   }
