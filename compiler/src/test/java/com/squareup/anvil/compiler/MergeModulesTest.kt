@@ -20,7 +20,12 @@ class MergeModulesTest(
   companion object {
     @JvmStatic
     @Parameterized.Parameters(name = "{0}")
-    fun data(): Collection<Any> = listOf(ComponentMergingBackend.KSP, ComponentMergingBackend.IR)
+    fun data(): Collection<Any> = buildList {
+      if (includeKspTests()) {
+        add(ComponentMergingBackend.KSP)
+      }
+      add(ComponentMergingBackend.IR)
+    }
   }
 
   @Test fun `Dagger modules are empty without arguments`() {
