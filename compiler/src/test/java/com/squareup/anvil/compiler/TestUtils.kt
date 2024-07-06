@@ -458,7 +458,11 @@ internal fun componentMergingAndMergeAnnotationParams(
         addAll(fullTestRunAnnotations)
       }
     },
-  ).map { (backend, annotation) -> arrayOf(backend, annotation) }
+  ).mapNotNull { (backend, annotation) ->
+    // See config-includeKspTests in libs.versions.toml for more detail
+    if (backend == ComponentMergingBackend.KSP && !includeKspTests()) return@mapNotNull null
+    arrayOf(backend, annotation)
+  }
     .distinct()
 }
 
