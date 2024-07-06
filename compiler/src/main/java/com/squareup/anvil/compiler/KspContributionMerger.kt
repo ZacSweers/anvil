@@ -475,6 +475,7 @@ internal class KspContributionMerger(override val env: SymbolProcessorEnvironmen
     } else {
       "modules"
     }
+
     return AnnotationSpec.builder(daggerAnnotationClassName)
       .addMember(
         "$parameterName = [%L]",
@@ -790,8 +791,23 @@ internal class KspContributionMerger(override val env: SymbolProcessorEnvironmen
     escape: (List<KSAnnotated>) -> Nothing,
   ): List<KSClassDeclaration> {
     val (valid, deferred) = filterIsInstance<KSClassDeclaration>().partition { annotated ->
-      // TODO check error types in annotations props
-      !annotated.superTypes.any { it.resolve().isError }
+      val superTypesHaveError = annotated.superTypes.any { it.resolve().isError }
+      if (superTypesHaveError) return@partition false
+      !annotated.findAll(
+        mergeComponentFqName.asString(),
+        mergeSubcomponentFqName.asString(),
+        mergeModulesFqName.asString(),
+        mergeInterfacesFqName.asString(),
+      ).any { annotation ->
+        // If any of the parameters are unresolved, we need to defer this class
+        arrayOf("modules", "dependencies", "exclude", "includes").forEach { parameter ->
+          @Suppress("UNCHECKED_CAST")
+          (annotation.argumentAt(parameter)?.value as? List<KSTypeReference>?)?.let { values ->
+            if (values.any { it.resolve().isError }) return@any true
+          }
+        }
+        false
+      }
     }
     return if (deferred.isNotEmpty()) {
       escape(deferred)
