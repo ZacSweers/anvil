@@ -802,8 +802,8 @@ internal class KspContributionMerger(override val env: SymbolProcessorEnvironmen
         // If any of the parameters are unresolved, we need to defer this class
         arrayOf("modules", "dependencies", "exclude", "includes").forEach { parameter ->
           @Suppress("UNCHECKED_CAST")
-          (annotation.argumentAt(parameter)?.value as? List<KSTypeReference>?)?.let { values ->
-            if (values.any { it.resolve().isError }) return@any true
+          (annotation.argumentAt(parameter)?.value as? List<KSType>?)?.let { values ->
+            if (values.any { it.isError }) return@any true
           }
         }
         false
