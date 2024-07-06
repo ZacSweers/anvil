@@ -47,9 +47,9 @@ class ContributesSubcomponentHandlerGeneratorTest(
     fun parameters(): Collection<Any> {
       return listOf(
         arrayOf(ComponentProcessingMode.NONE, AnvilCompilationMode.Embedded()),
-        // arrayOf(ComponentProcessingMode.NONE, AnvilCompilationMode.Ksp()),
+        arrayOf(ComponentProcessingMode.NONE, AnvilCompilationMode.Ksp()),
         arrayOf(ComponentProcessingMode.KAPT, AnvilCompilationMode.Embedded()),
-        // arrayOf(ComponentProcessingMode.KSP, AnvilCompilationMode.Ksp()),
+        arrayOf(ComponentProcessingMode.KSP, AnvilCompilationMode.Ksp()),
       )
     }
   }
