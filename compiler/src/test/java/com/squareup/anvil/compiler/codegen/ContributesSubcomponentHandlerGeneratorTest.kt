@@ -11,6 +11,7 @@ import com.squareup.anvil.compiler.compile
 import com.squareup.anvil.compiler.componentInterface
 import com.squareup.anvil.compiler.contributingInterface
 import com.squareup.anvil.compiler.daggerModule1
+import com.squareup.anvil.compiler.internal.testing.AnvilCompilationMode
 import com.squareup.anvil.compiler.internal.testing.ComponentProcessingMode
 import com.squareup.anvil.compiler.internal.testing.extends
 import com.squareup.anvil.compiler.internal.testing.shouldNotExtend
@@ -26,13 +27,36 @@ import dagger.Component
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldEndWith
 import org.jetbrains.kotlin.descriptors.runtime.structure.classId
-import org.junit.jupiter.api.Test
+import org.junit.Assume.assumeTrue
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
 import javax.inject.Singleton
 import kotlin.test.assertFailsWith
 
-class ContributesSubcomponentHandlerGeneratorTest {
+@RunWith(Parameterized::class)
+class ContributesSubcomponentHandlerGeneratorTest(
+  private val componentProcessingMode: ComponentProcessingMode,
+  private val mode: AnvilCompilationMode,
+) {
+
+  companion object {
+    @JvmStatic
+    @Parameters(name = "{0} {1}")
+    fun parameters(): Collection<Any> {
+      return listOf(
+        arrayOf(ComponentProcessingMode.NONE, AnvilCompilationMode.Embedded()),
+        // arrayOf(ComponentProcessingMode.NONE, AnvilCompilationMode.Ksp()),
+        arrayOf(ComponentProcessingMode.KAPT, AnvilCompilationMode.Embedded()),
+        // arrayOf(ComponentProcessingMode.KSP, AnvilCompilationMode.Ksp()),
+      )
+    }
+  }
+
 
   @Test fun `there is a subcomponent generated for a @MergeComponent`() {
+    assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
     compile(
       """
         package com.squareup.test
@@ -57,6 +81,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
   }
 
   @Test fun `generation works for a nested contributed subcomponent with a very long name`() {
+    assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
 
     // These name lengths are arbitrary. They're long enough to be somewhat realistic,
     // but short enough that most file names won't become obnoxiously long for no reason.
@@ -98,7 +123,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
         }
         
       """.trimIndent(),
-      componentProcessingMode = ComponentProcessingMode.KAPT,
+      componentProcessingMode = componentProcessingMode,
     ) {
 
       val subA = classLoader.loadClass("com.squareup.test.$a")
@@ -132,6 +157,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
   }
 
   @Test fun `there is a subcomponent generated for a @MergeSubcomponent`() {
+    assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
     compile(
       """
         package com.squareup.test
@@ -157,6 +183,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
 
   @Test
   fun `there is a subcomponent generated for a @MergeInterfaces and the parent component is added to the interface`() {
+    assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
     compile(
       """
         package com.squareup.test
@@ -187,6 +214,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
   }
 
   @Test fun `there is no subcomponent generated for a @MergeModules`() {
+    assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
     compile(
       """
         package com.squareup.test
@@ -210,6 +238,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
   }
 
   @Test fun `there is no subcomponent generated for a mismatching scopes`() {
+    assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
     compile(
       """
         package com.squareup.test
@@ -233,6 +262,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
   }
 
   @Test fun `there is a subcomponent generated for an inner class`() {
+    assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
     compile(
       """
         package com.squareup.test
@@ -262,6 +292,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
   }
 
   @Test fun `there is a subcomponent generated for an inner parent class`() {
+    assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
     compile(
       """
         package com.squareup.test
@@ -291,6 +322,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
   }
 
   @Test fun `there is a subcomponent generated in a chain of contributed subcomponents`() {
+    assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
     // This test will exercise multiple rounds of code generation.
     compile(
       """
@@ -330,6 +362,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
   }
 
   @Test fun `there is a subcomponent generated with separate compilations`() {
+    assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
     val firstCompilationResult = compile(
       """
         package com.squareup.test
@@ -370,6 +403,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
   }
 
   @Test fun `Dagger modules can be added manually`() {
+    assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
     compile(
       """
         package com.squareup.test
@@ -400,6 +434,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
   }
 
   @Test fun `Dagger modules can be added manually with multiple compilations`() {
+    assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
     val firstCompilationResult = compile(
       """
         package com.squareup.test
@@ -440,6 +475,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
   }
 
   @Test fun `Dagger modules, component interfaces and bindings can be excluded`() {
+    assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
     compile(
       """
         package com.squareup.test
@@ -488,6 +524,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
 
   @Test
   fun `Dagger modules, component interfaces and bindings can be excluded with multiple compilations`() {
+    assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
     val firstCompilationResult = compile(
       """
         package com.squareup.test
@@ -546,6 +583,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
 
   @Test
   fun `there is a parent component interface automatically generated without declaring one explicitly`() {
+    assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
     compile(
       """
         package com.squareup.test
@@ -573,6 +611,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
 
   @Test
   fun `the parent component interface extends a manually declared component interface with the same scope`() {
+    assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
     compile(
       """
         package com.squareup.test
@@ -614,6 +653,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
 
   @Test
   fun `the parent component interface extends a manually declared component interface with the same scope with multiple compilations`() {
+    assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
     val firstCompilationResult = compile(
       """
         package com.squareup.test
@@ -665,6 +705,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
 
   @Test
   fun `the parent component interface does not extend a manually declared component interface with a different scope`() {
+    assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
     compile(
       """
         package com.squareup.test
@@ -695,6 +736,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
 
   @Test
   fun `Dagger generates the real component and subcomponent and they can be instantiated through the component interfaces`() {
+    assumeTrue(componentProcessingMode != ComponentProcessingMode.NONE)
     checkFullTestRun()
 
     compile(
@@ -726,7 +768,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
         @MergeComponent(Unit::class)
         interface ComponentInterface
       """,
-      componentProcessingMode = ComponentProcessingMode.KAPT,
+      componentProcessingMode = componentProcessingMode,
     ) {
       val daggerComponent = componentInterface.daggerComponent.declaredMethods
         .single { it.name == "create" }
@@ -784,7 +826,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
         interface ComponentInterface2
       """,
       // Keep Dagger enabled, because it complained initially.
-      componentProcessingMode = ComponentProcessingMode.KAPT,
+      componentProcessingMode = componentProcessingMode,
     ) {
 
       val anvilComponent1 = subcomponentInterface1.anvilComponent(componentInterface1)
@@ -812,6 +854,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
   }
 
   @Test fun `contributed subcomponents can be excluded with @MergeComponent`() {
+    assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
     compile(
       """
       package com.squareup.test
@@ -840,6 +883,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
   }
 
   @Test fun `contributed subcomponents can be excluded with @MergeSubcomponent`() {
+    assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
     compile(
       """
       package com.squareup.test
@@ -868,6 +912,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
   }
 
   @Test fun `contributed subcomponents can be excluded with @MergeModules`() {
+    assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
     compile(
       """
       package com.squareup.test
@@ -895,6 +940,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
   }
 
   @Test fun `contributed subcomponents can be excluded in one component but not the other`() {
+    assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
     compile(
       """
       package com.squareup.test
@@ -932,6 +978,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
   }
 
   @Test fun `contributed subcomponents can be excluded only with a matching scope`() {
+    assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
     compile(
       """
       package com.squareup.test
@@ -960,6 +1007,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
 
   @Test
   fun `the parent component interface can return a factory`() {
+    assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
     compile(
       """
         package com.squareup.test
@@ -1004,6 +1052,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
 
   @Test
   fun `a factory can be an abstract class`() {
+    assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
     compile(
       """
         package com.squareup.test
@@ -1047,6 +1096,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
   }
 
   @Test fun `the generated parent component interface returns the factory if one is present`() {
+    assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
     compile(
       """
         package com.squareup.test
@@ -1085,6 +1135,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
   }
 
   @Test fun `Dagger generates the real component and subcomponent with a factory`() {
+    assumeTrue(componentProcessingMode != ComponentProcessingMode.NONE)
     checkFullTestRun()
 
     compile(
@@ -1117,7 +1168,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
         @MergeComponent(Unit::class)
         interface ComponentInterface
       """,
-      componentProcessingMode = ComponentProcessingMode.KAPT,
+      componentProcessingMode = componentProcessingMode,
     ) {
       val daggerComponent = componentInterface.daggerComponent.declaredMethods
         .single { it.name == "create" }
@@ -1146,6 +1197,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
 
   @Test
   fun `the generated factory can be injected`() {
+    assumeTrue(componentProcessingMode != ComponentProcessingMode.NONE)
     checkFullTestRun()
 
     compile(
@@ -1177,7 +1229,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
 
         class TestClass @Inject constructor(val factory: SubcomponentInterface.ComponentFactory)
       """,
-      componentProcessingMode = ComponentProcessingMode.KAPT,
+      componentProcessingMode = componentProcessingMode,
     ) {
       val daggerComponent = componentInterface.daggerComponent.declaredMethods
         .single { it.name == "create" }
@@ -1205,6 +1257,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
 
   @Test
   fun `the generated factory can be injected in a nested subcomponent`() {
+    assumeTrue(componentProcessingMode != ComponentProcessingMode.NONE)
     checkFullTestRun()
 
     compile(
@@ -1239,7 +1292,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
 
         class TestClass @Inject constructor(val factory: SubcomponentInterface.ComponentFactory)
       """,
-      componentProcessingMode = ComponentProcessingMode.KAPT,
+      componentProcessingMode = componentProcessingMode,
     ) {
       val daggerComponent = componentInterface2.daggerComponent.declaredMethods
         .single { it.name == "create" }
@@ -1271,6 +1324,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
 
   @Test
   fun `the generated factory can be injected with multiple compilations`() {
+    assumeTrue(componentProcessingMode != ComponentProcessingMode.NONE)
     checkFullTestRun()
 
     val firstCompilationResult = compile(
@@ -1304,7 +1358,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
         @MergeComponent(Unit::class)
         interface ComponentInterface1
       """.trimIndent(),
-      componentProcessingMode = ComponentProcessingMode.KAPT,
+      componentProcessingMode = componentProcessingMode,
     ) {
       assertThat(exitCode).isEqualTo(OK)
 
@@ -1323,7 +1377,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
         interface ComponentInterface2
       """.trimIndent(),
       previousCompilationResult = firstCompilationResult,
-      componentProcessingMode = ComponentProcessingMode.KAPT,
+      componentProcessingMode = componentProcessingMode,
     ) {
       assertThat(exitCode).isEqualTo(OK)
 
@@ -1349,6 +1403,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
 
   @Test
   fun `the correct generated factory is bound`() {
+    assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
     compile(
       """
         package com.squareup.test
@@ -1401,6 +1456,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
 
   @Test
   fun `the correct generated factory is bound - with Dagger`() {
+    assumeTrue(componentProcessingMode != ComponentProcessingMode.NONE)
     checkFullTestRun()
 
     compile(
@@ -1437,7 +1493,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
 
         class TestClass @Inject constructor(val factory: SubcomponentInterface.ComponentFactory)
       """,
-      componentProcessingMode = ComponentProcessingMode.KAPT,
+      componentProcessingMode = componentProcessingMode,
     ) {
       val daggerComponent1 = componentInterface1.daggerComponent.declaredMethods
         .single { it.name == "create" }
@@ -1476,6 +1532,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
   }
 
   @Test fun `the generated subcomponent contains the same scope annotation`() {
+    assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
     compile(
       """
         package com.squareup.test
@@ -1501,6 +1558,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
   }
 
   @Test fun `the generated subcomponent contains the same scope annotation - custom scope`() {
+    assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
     compile(
       """
         package com.squareup.test
@@ -1540,6 +1598,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
   }
 
   @Test fun `subcomponent can be contributed and bindings replaced in a 2nd compilation`() {
+    assumeTrue(componentProcessingMode != ComponentProcessingMode.NONE)
     checkFullTestRun()
 
     // This test simulates a compilation in the main source set and test/androidTest source set,
@@ -1572,7 +1631,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
         @MergeComponent(Unit::class)
         interface ComponentInterface1
       """,
-      componentProcessingMode = ComponentProcessingMode.KAPT,
+      componentProcessingMode = componentProcessingMode,
     ) {
       val daggerComponent = componentInterface1.daggerComponent.declaredMethods
         .single { it.name == "create" }
@@ -1618,7 +1677,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
         @MergeComponent(Unit::class)
         interface ComponentInterface2
       """,
-      componentProcessingMode = ComponentProcessingMode.KAPT,
+      componentProcessingMode = componentProcessingMode,
       previousCompilationResult = firstResult,
     ) {
       val daggerComponent = componentInterface2.daggerComponent.declaredMethods
@@ -1648,6 +1707,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
   }
 
   @Test fun `contributed subcomponent parent interfaces are merged with the right component`() {
+    assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
     compile(
       """
       package com.squareup.test
@@ -1708,13 +1768,14 @@ class ContributesSubcomponentHandlerGeneratorTest {
         @ContributesSubcomponent(scope = Any::class, parentScope = Unit::class)
         interface SubcomponentInterfacewithVeryVeryVeryVeryVeryVeryVeryLongName
       """,
-      componentProcessingMode = ComponentProcessingMode.KAPT,
+      componentProcessingMode = componentProcessingMode,
     ) {
       assertThat(exitCode).isEqualTo(OK)
     }
   }
 
   @Test fun `an @ContributeSubcomponent class can be generated`() {
+    assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
     val codeGenerator = simpleCodeGenerator { clazz ->
       clazz
         .takeIf { it.isAnnotatedWith(mergeComponentFqName) }
@@ -1766,6 +1827,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
   }
 
   @Test fun `an @ContributeSubcomponent class can be generated with a custom factory`() {
+    assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
     val codeGenerator = simpleCodeGenerator { clazz ->
       clazz
         .takeIf { it.isAnnotatedWith(mergeComponentFqName) }
@@ -1828,6 +1890,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
   }
 
   @Test fun `a contributed subcomponent can be replaced`() {
+    assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
     compile(
       """
         package com.squareup.test
@@ -1866,6 +1929,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
 
   @Test
   fun `a replaced subcomponent's exclusions for Dagger modules, component interfaces and bindings are ignored`() {
+    assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
     compile(
       """
         package com.squareup.test
@@ -1917,6 +1981,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
 
   @Test
   fun `a subcomponent can replace another subcomponent with a different parent scope`() {
+    assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
     compile(
       """
         package com.squareup.test
@@ -1974,6 +2039,7 @@ class ContributesSubcomponentHandlerGeneratorTest {
 
   @Test
   fun `a previously generated contributed subcomponent can be replaced in a later round of generations`() {
+    assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
     val codeGenerator = simpleCodeGenerator { clazz ->
       clazz
         .takeIf { it.isAnnotatedWith(mergeComponentFqName) }
