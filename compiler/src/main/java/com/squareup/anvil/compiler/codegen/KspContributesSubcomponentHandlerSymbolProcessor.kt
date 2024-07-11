@@ -15,14 +15,10 @@ import com.google.devtools.ksp.symbol.Visibility
 import com.google.devtools.ksp.symbol.impl.hasAnnotation
 import com.squareup.anvil.annotations.MergeSubcomponent
 import com.squareup.anvil.compiler.COMPONENT_PACKAGE_PREFIX
-import com.squareup.anvil.compiler.ClassScanner
 import com.squareup.anvil.compiler.ClassScannerKsp
 import com.squareup.anvil.compiler.PARENT_COMPONENT
 import com.squareup.anvil.compiler.SUBCOMPONENT_FACTORY
 import com.squareup.anvil.compiler.SUBCOMPONENT_MODULE
-import com.squareup.anvil.compiler.api.AnvilContext
-import com.squareup.anvil.compiler.api.GeneratedFileWithSources
-import com.squareup.anvil.compiler.api.createGeneratedFile
 import com.squareup.anvil.compiler.codegen.ksp.AnvilSymbolProcessor
 import com.squareup.anvil.compiler.codegen.ksp.AnvilSymbolProcessorProvider
 import com.squareup.anvil.compiler.codegen.ksp.KspAnvilException
@@ -34,7 +30,6 @@ import com.squareup.anvil.compiler.codegen.ksp.fqName
 import com.squareup.anvil.compiler.codegen.ksp.getSymbolsWithAnnotations
 import com.squareup.anvil.compiler.codegen.ksp.isDaggerScope
 import com.squareup.anvil.compiler.codegen.ksp.isInterface
-import com.squareup.anvil.compiler.codegen.ksp.isQualifier
 import com.squareup.anvil.compiler.codegen.ksp.modules
 import com.squareup.anvil.compiler.codegen.ksp.parentScope
 import com.squareup.anvil.compiler.codegen.ksp.replaces
@@ -45,17 +40,9 @@ import com.squareup.anvil.compiler.contributesSubcomponentFactoryFqName
 import com.squareup.anvil.compiler.contributesSubcomponentFqName
 import com.squareup.anvil.compiler.contributesToFqName
 import com.squareup.anvil.compiler.internal.asClassName
-import com.squareup.anvil.compiler.internal.buildFile
 import com.squareup.anvil.compiler.internal.createAnvilSpec
 import com.squareup.anvil.compiler.internal.joinSimpleNamesAndTruncate
-import com.squareup.anvil.compiler.internal.reference.AnnotationReference
-import com.squareup.anvil.compiler.internal.reference.AnvilCompilationExceptionClassReference
-import com.squareup.anvil.compiler.internal.reference.ClassReference
-import com.squareup.anvil.compiler.internal.reference.MemberFunctionReference
-import com.squareup.anvil.compiler.internal.reference.Visibility.PUBLIC
 import com.squareup.anvil.compiler.internal.reference.asClassId
-import com.squareup.anvil.compiler.internal.reference.asClassName
-import com.squareup.anvil.compiler.internal.reference.classAndInnerClassReferences
 import com.squareup.anvil.compiler.internal.safePackageString
 import com.squareup.anvil.compiler.mergeComponentFqName
 import com.squareup.anvil.compiler.mergeInterfacesFqName
@@ -70,16 +57,11 @@ import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.ksp.addOriginatingKSFile
 import com.squareup.kotlinpoet.ksp.toAnnotationSpec
 import com.squareup.kotlinpoet.ksp.toClassName
-import com.squareup.kotlinpoet.ksp.toTypeName
 import com.squareup.kotlinpoet.ksp.writeTo
 import dagger.Binds
 import dagger.Module
-import dagger.Subcomponent
-import org.jetbrains.kotlin.descriptors.ModuleDescriptor
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.Name
-import org.jetbrains.kotlin.psi.KtFile
-import java.io.File
 
 /**
  * Looks for `@MergeComponent`, `@MergeSubcomponent` or `@MergeModules` annotations and generates
@@ -209,6 +191,8 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
                 .asIterable()
             )
             .apply {
+              // TODO if there's contributed interfaces, need to generate bindings
+              //  i.e. bind SubcomponentInterface2_5a3cef1f as SubcomponentInterface2
               if (factoryClass != null) {
                 addType(generateFactory(factoryClass.originalReference))
                 addType(generateDaggerModule(factoryClass.originalReference))
@@ -249,7 +233,8 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
     }
 
     return builder
-      .addAnnotation(Subcomponent.Factory::class)
+      // TODO dagger doesn't like this in our new KSP world
+      // .addAnnotation(Subcomponent.Factory::class)
       .build()
   }
 
