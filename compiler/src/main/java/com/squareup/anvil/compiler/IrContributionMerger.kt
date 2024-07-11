@@ -67,7 +67,9 @@ internal class IrContributionMerger(
 
           // For @Merge*.Factory/Builder annotations, generate the "real" one onto the class
           // This is for backward compatibility with K1 support
-          for (creatorAnnotation in mergeAnnotatedClass.annotations.findAll(CREATOR_ANNOTATIONS.keys)) {
+          for (creatorAnnotation in mergeAnnotatedClass.annotations.findAll(
+            CREATOR_ANNOTATIONS.keys,
+          )) {
             val daggerAnnotation = CREATOR_ANNOTATIONS.getValue(creatorAnnotation.fqName)
             pluginContext.irBuiltIns.createIrBuilder(declaration.symbol)
               .generateCreatorAnnotation(

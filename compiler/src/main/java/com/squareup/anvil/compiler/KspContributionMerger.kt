@@ -66,7 +66,6 @@ import com.squareup.kotlinpoet.joinToCode
 import com.squareup.kotlinpoet.ksp.toAnnotationSpec
 import com.squareup.kotlinpoet.ksp.toClassName
 import com.squareup.kotlinpoet.ksp.writeTo
-import dagger.Component
 import dagger.Module
 import org.jetbrains.kotlin.name.Name
 

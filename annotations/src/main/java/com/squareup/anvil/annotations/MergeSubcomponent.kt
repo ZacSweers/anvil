@@ -80,6 +80,7 @@ public annotation class MergeSubcomponent(
   @Retention(RUNTIME)
   @Repeatable
   public annotation class Factory
+
   /**
    * Mirrors `dagger.Subcomponent.Builder` and just conveys that this annotated builder should be
    * mirrored in the merged component class.
