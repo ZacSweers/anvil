@@ -14,6 +14,7 @@ import com.squareup.anvil.compiler.daggerModule1
 import com.squareup.anvil.compiler.internal.testing.AnvilCompilationMode
 import com.squareup.anvil.compiler.internal.testing.ComponentProcessingMode
 import com.squareup.anvil.compiler.internal.testing.extends
+import com.squareup.anvil.compiler.internal.testing.resolveIfMerged
 import com.squareup.anvil.compiler.internal.testing.shouldNotExtend
 import com.squareup.anvil.compiler.internal.testing.simpleCodeGenerator
 import com.squareup.anvil.compiler.internal.testing.use
@@ -1267,7 +1268,7 @@ class ContributesSubcomponentHandlerGeneratorTest(
         .single { it.name == "create" }
         .invoke(null)
 
-      val testClassInstance = componentInterface.declaredMethods
+      val testClassInstance = componentInterface.methods
         .single { it.name == "testClass" }
         .invoke(daggerComponent)
 
