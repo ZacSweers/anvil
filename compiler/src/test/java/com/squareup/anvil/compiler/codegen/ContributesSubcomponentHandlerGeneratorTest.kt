@@ -2168,6 +2168,7 @@ class ContributesSubcomponentHandlerGeneratorTest(
 
   private val JvmCompilationResult.componentInterface1: Class<*>
     get() = classLoader.loadClass("com.squareup.test.ComponentInterface1")
+      .resolveIfMerged()
 
   private val JvmCompilationResult.componentInterface2: Class<*>
     get() = classLoader.loadClass("com.squareup.test.ComponentInterface2")
