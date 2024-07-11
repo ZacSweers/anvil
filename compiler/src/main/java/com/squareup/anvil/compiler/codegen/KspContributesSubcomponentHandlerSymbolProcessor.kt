@@ -502,10 +502,10 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
   private class Contribution(val annotation: KSAnnotation) {
     val clazz = annotation.declaringClass
     val scope = annotation.scope()
-    val parentScope = annotation.parentScope()
+    val parentScopeType = annotation.parentScope().asType(emptyList())
 
     override fun toString(): String {
-      return "Contribution(class=$clazz, scope=$scope, parentScope=$parentScope)"
+      return "Contribution(class=$clazz, scope=$scope, parentScope=$parentScopeType)"
     }
 
     override fun equals(other: Any?): Boolean {
@@ -515,7 +515,7 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
       other as Contribution
 
       if (scope != other.scope) return false
-      if (parentScope != other.parentScope) return false
+      if (parentScopeType != other.parentScopeType) return false
       if (clazz != other.clazz) return false
 
       return true
@@ -523,7 +523,7 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
 
     override fun hashCode(): Int {
       var result = scope.hashCode()
-      result = 31 * result + parentScope.hashCode()
+      result = 31 * result + parentScopeType.hashCode()
       result = 31 * result + clazz.hashCode()
       return result
     }
