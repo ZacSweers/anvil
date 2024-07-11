@@ -46,7 +46,11 @@ internal fun compile(
   generateDaggerFactoriesOnly: Boolean = false,
   disableComponentMerging: Boolean = false,
   componentProcessingMode: ComponentProcessingMode = ComponentProcessingMode.NONE,
-  componentMergingBackend: ComponentMergingBackend = ComponentMergingBackend.IR,
+  componentMergingBackend: ComponentMergingBackend = if (componentProcessingMode == ComponentProcessingMode.KSP) {
+    ComponentMergingBackend.KSP
+  } else {
+    ComponentMergingBackend.IR
+  },
   trackSourceFiles: Boolean = true,
   codeGenerators: List<CodeGenerator> = emptyList(),
   allWarningsAsErrors: Boolean = true,
