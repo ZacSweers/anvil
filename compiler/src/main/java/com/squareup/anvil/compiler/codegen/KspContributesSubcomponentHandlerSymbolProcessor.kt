@@ -130,7 +130,7 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
         .filterIsInstance<KSClassDeclaration>()
         .map { annotatedClass ->
           val annotation = annotatedClass.find(generationTrigger.asString()).single()
-          Trigger(annotatedClass, annotation.scope(), annotation.exclude())
+          Trigger(annotatedClass, annotation.scope(), annotation.exclude().toSet())
         }
     }
 
@@ -471,7 +471,7 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
   private class Trigger(
     val clazz: KSClassDeclaration,
     val scope: KSType,
-    val exclusions: List<KSClassDeclaration>,
+    val exclusions: Set<KSClassDeclaration>,
   ) {
 
     val clazzFqName = clazz.fqName
