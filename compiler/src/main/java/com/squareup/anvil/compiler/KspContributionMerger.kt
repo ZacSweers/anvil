@@ -200,8 +200,8 @@ internal class KspContributionMerger(override val env: SymbolProcessorEnvironmen
         .filterIsInstance<KSClassDeclaration>()
         .mapNotNull { nestedClass ->
           val factoryAnnotation =
-            nestedClass.getKSAnnotationsByType(Component.Factory::class).singleOrNull()
-              ?: nestedClass.getKSAnnotationsByType(Subcomponent.Factory::class).singleOrNull()
+            nestedClass.getKSAnnotationsByType(MergeComponent.Factory::class).singleOrNull()
+              ?: nestedClass.getKSAnnotationsByType(MergeSubcomponent.Factory::class).singleOrNull()
 
           // Note we need to check for `@ContributesSubcomponent.Factory` here because we cannot
           // directly annotate the factory with `@Subcomponent.Factory` due to it not actually
@@ -232,8 +232,8 @@ internal class KspContributionMerger(override val env: SymbolProcessorEnvironmen
               factoryAnnotation = factoryAnnotation,
             )
           }
-          val isBuilderCreator = nestedClass.isAnnotationPresent<Component.Builder>() ||
-            nestedClass.isAnnotationPresent<Subcomponent.Builder>()
+          val isBuilderCreator = nestedClass.isAnnotationPresent<MergeComponent.Builder>() ||
+            nestedClass.isAnnotationPresent<MergeSubcomponent.Builder>()
           if (isBuilderCreator) {
             val factoryOrBuilderFunSpec = FunSpec.builder("builder")
               .addAnnotation(JvmStatic::class)
@@ -807,6 +807,10 @@ internal class KspContributionMerger(override val env: SymbolProcessorEnvironmen
           addSuperinterface(contributedInterface)
         }
 
+        // TODO actually generate the creators too
+        //  - Extend the original
+        //  - Annotate with the real dagger annotation
+        //  - Add a binding module binding the extension as the root
         creatorData?.let { creatorData ->
           val factoryOrBuilder = creatorData.extendFactoryOrBuilder(
             mergeAnnotatedClass.toClassName(),
