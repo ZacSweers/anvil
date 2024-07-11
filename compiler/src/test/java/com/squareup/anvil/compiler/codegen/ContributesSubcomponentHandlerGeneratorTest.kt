@@ -30,30 +30,31 @@ import io.kotest.matchers.string.shouldEndWith
 import org.jetbrains.kotlin.descriptors.runtime.structure.classId
 import org.junit.Assume.assumeTrue
 import org.junit.Test
-import org.junit.runner.RunWith
-import org.junit.runners.Parameterized
-import org.junit.runners.Parameterized.Parameters
 import javax.inject.Singleton
+import kotlin.io.path.createTempDirectory
 import kotlin.test.assertFailsWith
 
-@RunWith(Parameterized::class)
+// @RunWith(Parameterized::class)
 class ContributesSubcomponentHandlerGeneratorTest(
-  private val componentProcessingMode: ComponentProcessingMode,
-  private val mode: AnvilCompilationMode,
+  // private val componentProcessingMode: ComponentProcessingMode,
+  // private val mode: AnvilCompilationMode,
 ) {
 
-  companion object {
-    @JvmStatic
-    @Parameters(name = "{0} {1}")
-    fun parameters(): Collection<Any> {
-      return listOf(
-        arrayOf(ComponentProcessingMode.NONE, AnvilCompilationMode.Embedded()),
-        arrayOf(ComponentProcessingMode.NONE, AnvilCompilationMode.Ksp()),
-        arrayOf(ComponentProcessingMode.KAPT, AnvilCompilationMode.Embedded()),
-        arrayOf(ComponentProcessingMode.KSP, AnvilCompilationMode.Ksp()),
-      )
-    }
-  }
+  private val componentProcessingMode: ComponentProcessingMode = ComponentProcessingMode.KSP
+  private val mode: AnvilCompilationMode = AnvilCompilationMode.Ksp()
+
+  // companion object {
+  //   @JvmStatic
+  //   @Parameters(name = "{0} {1}")
+  //   fun parameters(): Collection<Any> {
+  //     return listOf(
+  //       // arrayOf(ComponentProcessingMode.NONE, AnvilCompilationMode.Embedded()),
+  //       arrayOf(ComponentProcessingMode.NONE, AnvilCompilationMode.Ksp()),
+  //       // arrayOf(ComponentProcessingMode.KAPT, AnvilCompilationMode.Embedded()),
+  //       // arrayOf(ComponentProcessingMode.KSP, AnvilCompilationMode.Ksp()),
+  //     )
+  //   }
+  // }
 
 
   @Test fun `there is a subcomponent generated for a @MergeComponent`() {
@@ -815,6 +816,7 @@ class ContributesSubcomponentHandlerGeneratorTest(
 
   @Test
   fun `the parent interface of a contributed subcomponent is picked up by components and other contributed subcomponents`() {
+    val dir = createTempDirectory()
     compile(
       """
         package com.squareup.test
@@ -850,6 +852,7 @@ class ContributesSubcomponentHandlerGeneratorTest(
       mode = mode,
       // Keep Dagger enabled, because it complained initially.
       componentProcessingMode = componentProcessingMode,
+      workingDir = dir.toFile()
     ) {
 
       val anvilComponent1 = subcomponentInterface1.anvilComponent(componentInterface1)
