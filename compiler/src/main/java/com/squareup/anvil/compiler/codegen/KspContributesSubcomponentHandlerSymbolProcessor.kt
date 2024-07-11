@@ -157,7 +157,7 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
       .flatMap { contribution ->
         triggers
           .filter { trigger ->
-            trigger.scope == contribution.parentScope && contribution.clazz !in trigger.exclusions
+            trigger.scope == contribution.parentScopeType && contribution.clazz !in trigger.exclusions
           }
           .map { trigger ->
             GenerateCodeEvent(trigger, contribution)
@@ -326,7 +326,7 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
       .filter { nestedClass ->
         nestedClass.annotations
           .any {
-            it.fqName == contributesToFqName && it.scope() == contribution.parentScope
+            it.fqName == contributesToFqName && it.scope() == contribution.parentScopeType
           }
       }
       .toList()
@@ -344,7 +344,7 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
     val functions = componentInterface.getAllFunctions()
       .filter { it.isAbstract && it.getVisibility() == Visibility.PUBLIC }
       .filter {
-        val returnType = it.returnType?.toTypeName() ?: return@filter false
+        val returnType = it.returnType?.resolve()?.declaration ?: return@filter false
         returnType == contribution.clazz || (factoryClass != null && returnType == factoryClass)
       }
       .toList()
@@ -382,10 +382,15 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
           )
         }
 
+        val implementingType = factory.asType(emptyList())
         val createComponentFunctions = factory.getAllFunctions()
           .filter { it.isAbstract }
           .filter {
-            it.asMemberOf(contribution.clazz.asType(emptyList())).returnTypeOrNull()?.resolveKSClassDeclaration()?.toClassName() == contributionClassName }
+            it.asMemberOf(implementingType)
+              .returnTypeOrNull()
+              ?.resolveKSClassDeclaration()
+              ?.toClassName() == contributionClassName
+          }
           .toList()
 
         if (createComponentFunctions.size != 1) {
