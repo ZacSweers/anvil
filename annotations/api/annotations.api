@@ -134,6 +134,12 @@ public abstract interface annotation class com/squareup/anvil/annotations/compat
 	public abstract fun value ()[Lcom/squareup/anvil/annotations/compat/MergeModules;
 }
 
+public abstract interface annotation class com/squareup/anvil/annotations/internal/GeneratedMergeableSubcomponent : java/lang/annotation/Annotation {
+	public abstract fun componentFactory ()Ljava/lang/Class;
+	public abstract fun contributor ()Ljava/lang/Class;
+	public abstract fun root ()Ljava/lang/Class;
+}
+
 public abstract interface annotation class com/squareup/anvil/annotations/internal/InternalBindingMarker : java/lang/annotation/Annotation {
 	public abstract fun isMultibinding ()Z
 	public abstract fun originClass ()Ljava/lang/Class;
