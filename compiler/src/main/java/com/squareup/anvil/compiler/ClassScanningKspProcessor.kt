@@ -32,7 +32,8 @@ internal class ClassScanningKspProcessor(
       val context = env.toAnvilContext()
       // Shared caching class scanner for both processors
       val classScanner = ClassScannerKsp()
-      val contributesSubcomponentHandler = KspContributesSubcomponentHandlerSymbolProcessor(env, classScanner)
+      val contributesSubcomponentHandler =
+        KspContributesSubcomponentHandlerSymbolProcessor(env, classScanner)
       val componentMergingEnabled = !context.disableComponentMerging && !context.generateFactories && context.componentMergingBackend == ComponentMergingBackend.KSP
       val delegate = if (componentMergingEnabled) {
         // We're running component merging, so we need to run both and let KspContributionMerger

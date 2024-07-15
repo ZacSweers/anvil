@@ -164,7 +164,8 @@ internal class KspContributionMerger(
       mergeInterfacesFqName,
     ).filterIsInstance<KSClassDeclaration>()
       .validate { deferred ->
-        return deferred }
+        return deferred
+      }
       .also { mergeAnnotatedTypes ->
         if (shouldDefer) {
           return mergeAnnotatedTypes
@@ -788,7 +789,7 @@ internal class KspContributionMerger(
           AnnotationSpec.builder(InternalMergedTypeMarker::class)
             .addMember("originClass = %T::class", mergeAnnotatedClassName)
             .addMember("scope = %T::class", scope)
-            .build()
+            .build(),
         )
         if (!isModule) {
           addSuperinterface(mergeAnnotatedClassName)
@@ -834,7 +835,7 @@ internal class KspContributionMerger(
           addType(
             generateDaggerBindingModuleForFactory(
               parent = creator.declaration,
-              impl = generatedComponentClassName.nestedClass(creatorSpec.name!!)
+              impl = generatedComponentClassName.nestedClass(creatorSpec.name!!),
             ),
           )
 
@@ -1433,7 +1434,9 @@ internal sealed interface Creator {
               }.factory()",
             )
             .build()
-        } else null
+        } else {
+          null
+        }
         Factory(
           declaration = declaration,
           daggerFunSpec = daggerFunSpec,
@@ -1453,7 +1456,9 @@ internal sealed interface Creator {
               }.builder()",
             )
             .build()
-        } else null
+        } else {
+          null
+        }
         Builder(
           declaration = declaration,
           daggerFunSpec = daggerFunSpec,
@@ -1468,7 +1473,7 @@ internal sealed interface Creator {
 // TODO dedupe logic with ContributesSubcomponentHandler version?
 private fun generateDaggerBindingModuleForFactory(
   parent: KSClassDeclaration,
-  impl: ClassName
+  impl: ClassName,
 ): TypeSpec {
   // This Dagger module will allow injecting the factory instance.
   return TypeSpec

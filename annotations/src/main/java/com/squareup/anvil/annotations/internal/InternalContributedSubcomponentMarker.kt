@@ -1,7 +1,7 @@
 package com.squareup.anvil.annotations.internal
 
-import kotlin.reflect.KClass
 import com.squareup.anvil.annotations.ContributesSubcomponent
+import kotlin.reflect.KClass
 
 /**
  * When using [ContributesSubcomponent], we generate some extra information based on the source

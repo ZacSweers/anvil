@@ -24,7 +24,7 @@ internal data class BindingSpec(
  */
 internal fun daggerBindingModuleSpec(
   moduleName: String,
-  specs: Collection<BindingSpec>
+  specs: Collection<BindingSpec>,
 ): TypeSpec {
   check(specs.isNotEmpty())
   return TypeSpec

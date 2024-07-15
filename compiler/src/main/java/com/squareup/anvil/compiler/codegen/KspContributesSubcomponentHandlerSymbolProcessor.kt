@@ -157,7 +157,8 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
             )
             .apply {
               env.logger.info("Writing `@MergeSubcomponent` type ${contribution.clazz.fqName}")
-              val parentComponentInterface = findParentComponentInterface(contribution, factoryClass?.originalReference)
+              val parentComponentInterface =
+                findParentComponentInterface(contribution, factoryClass?.originalReference)
               addAnnotation(
                 AnnotationSpec.builder(InternalContributedSubcomponentMarker::class)
                   .addMember("originClass = %T::class", contributionClassName)
@@ -175,17 +176,19 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
                   .build(),
               )
 
-              addType(daggerBindingModuleSpec(
-                BINDING_MODULE_SUFFIX,
-                listOf(BindingSpec(impl = generatedClassName, boundType = contributionClassName))
-              ))
+              addType(
+                daggerBindingModuleSpec(
+                  BINDING_MODULE_SUFFIX,
+                  listOf(BindingSpec(impl = generatedClassName, boundType = contributionClassName)),
+                ),
+              )
 
               if (parentComponentInterface == null) {
                 addType(
                   generateParentComponent(
                     origin = contributionClassName,
                     factoryClass = factoryClass,
-                  )
+                  ),
                 )
               }
             }

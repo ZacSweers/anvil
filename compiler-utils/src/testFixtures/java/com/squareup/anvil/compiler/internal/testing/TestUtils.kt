@@ -156,13 +156,13 @@ public fun Collection<KClass<*>>.withoutAnvilModules(): List<KClass<*>> =
 @ExperimentalAnvilApi
 public fun Collection<KClass<*>>.withoutMergedBindingModules(): List<KClass<*>> =
   filterNot {
-      it.java.isMergedBindingModule()
+    it.java.isMergedBindingModule()
   }
 
 @ExperimentalAnvilApi
 public fun Array<KClass<*>>.withoutMergedBindingModules(): Array<KClass<*>> =
   filterNot {
-      it.java.isMergedBindingModule()
+    it.java.isMergedBindingModule()
   }.toTypedArray()
 
 /**

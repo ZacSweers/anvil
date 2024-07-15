@@ -87,7 +87,9 @@ class ContributesSubcomponentHandlerGeneratorTest(
   @Test fun `generation works for a nested contributed subcomponent with a very long name`() {
     assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
     // This test tests legacy behavior that we no longer need to do in KSP processing
-    assumeFalse(mode is AnvilCompilationMode.Ksp && componentProcessingMode != ComponentProcessingMode.KSP)
+    assumeFalse(
+      mode is AnvilCompilationMode.Ksp && componentProcessingMode != ComponentProcessingMode.KSP,
+    )
 
     // These name lengths are arbitrary. They're long enough to be somewhat realistic,
     // but short enough that most file names won't become obnoxiously long for no reason.
@@ -605,7 +607,9 @@ class ContributesSubcomponentHandlerGeneratorTest(
   fun `there is a parent component interface automatically generated without declaring one explicitly`() {
     assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
     // This test tests legacy behavior that we no longer need to do in KSP processing
-    assumeFalse(mode is AnvilCompilationMode.Ksp && componentProcessingMode != ComponentProcessingMode.KSP)
+    assumeFalse(
+      mode is AnvilCompilationMode.Ksp && componentProcessingMode != ComponentProcessingMode.KSP,
+    )
     compile(
       """
         package com.squareup.test
@@ -636,7 +640,9 @@ class ContributesSubcomponentHandlerGeneratorTest(
   fun `the parent component interface extends a manually declared component interface with the same scope`() {
     assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
     // This test tests legacy behavior that we no longer need to do in KSP processing
-    assumeFalse(mode is AnvilCompilationMode.Ksp && componentProcessingMode != ComponentProcessingMode.KSP)
+    assumeFalse(
+      mode is AnvilCompilationMode.Ksp && componentProcessingMode != ComponentProcessingMode.KSP,
+    )
     compile(
       """
         package com.squareup.test
@@ -681,7 +687,9 @@ class ContributesSubcomponentHandlerGeneratorTest(
   fun `the parent component interface extends a manually declared component interface with the same scope with multiple compilations`() {
     assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
     // This test tests legacy behavior that we no longer need to do in KSP processing
-    assumeFalse(mode is AnvilCompilationMode.Ksp && componentProcessingMode != ComponentProcessingMode.KSP)
+    assumeFalse(
+      mode is AnvilCompilationMode.Ksp && componentProcessingMode != ComponentProcessingMode.KSP,
+    )
     val firstCompilationResult = compile(
       """
         package com.squareup.test
@@ -826,7 +834,9 @@ class ContributesSubcomponentHandlerGeneratorTest(
   @Test
   fun `the parent interface of a contributed subcomponent is picked up by components and other contributed subcomponents`() {
     // This test tests legacy behavior that we no longer need to do in KSP processing
-    assumeFalse(mode is AnvilCompilationMode.Ksp && componentProcessingMode != ComponentProcessingMode.KSP)
+    assumeFalse(
+      mode is AnvilCompilationMode.Ksp && componentProcessingMode != ComponentProcessingMode.KSP,
+    )
     compile(
       """
         package com.squareup.test
@@ -1048,7 +1058,9 @@ class ContributesSubcomponentHandlerGeneratorTest(
   fun `the parent component interface can return a factory`() {
     assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
     // This test tests legacy behavior that we no longer need to do in KSP processing
-    assumeFalse(mode is AnvilCompilationMode.Ksp && componentProcessingMode != ComponentProcessingMode.KSP)
+    assumeFalse(
+      mode is AnvilCompilationMode.Ksp && componentProcessingMode != ComponentProcessingMode.KSP,
+    )
     compile(
       """
         package com.squareup.test
@@ -1096,7 +1108,9 @@ class ContributesSubcomponentHandlerGeneratorTest(
   fun `a factory can be an abstract class`() {
     assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
     // This test tests legacy behavior that we no longer need to do in KSP processing
-    assumeFalse(mode is AnvilCompilationMode.Ksp && componentProcessingMode != ComponentProcessingMode.KSP)
+    assumeFalse(
+      mode is AnvilCompilationMode.Ksp && componentProcessingMode != ComponentProcessingMode.KSP,
+    )
     compile(
       """
         package com.squareup.test
@@ -1143,7 +1157,9 @@ class ContributesSubcomponentHandlerGeneratorTest(
   @Test fun `the generated parent component interface returns the factory if one is present`() {
     assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
     // This test tests legacy behavior that we no longer need to do in KSP processing
-    assumeFalse(mode is AnvilCompilationMode.Ksp && componentProcessingMode != ComponentProcessingMode.KSP)
+    assumeFalse(
+      mode is AnvilCompilationMode.Ksp && componentProcessingMode != ComponentProcessingMode.KSP,
+    )
     compile(
       """
         package com.squareup.test
@@ -1460,7 +1476,9 @@ class ContributesSubcomponentHandlerGeneratorTest(
   fun `the correct generated factory is bound`() {
     assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
     // This test tests legacy behavior that we no longer need to do in KSP processing
-    assumeFalse(mode is AnvilCompilationMode.Ksp && componentProcessingMode != ComponentProcessingMode.KSP)
+    assumeFalse(
+      mode is AnvilCompilationMode.Ksp && componentProcessingMode != ComponentProcessingMode.KSP,
+    )
     compile(
       """
         package com.squareup.test

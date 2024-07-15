@@ -1,7 +1,6 @@
 package com.squareup.anvil.compiler.codegen
 
 import com.squareup.anvil.annotations.MergeSubcomponent
-import com.squareup.anvil.compiler.COMPONENT_PACKAGE_PREFIX
 import com.squareup.anvil.compiler.ClassScanner
 import com.squareup.anvil.compiler.PARENT_COMPONENT
 import com.squareup.anvil.compiler.SUBCOMPONENT_FACTORY
@@ -14,16 +13,13 @@ import com.squareup.anvil.compiler.contributesSubcomponentFqName
 import com.squareup.anvil.compiler.contributesToFqName
 import com.squareup.anvil.compiler.internal.asClassName
 import com.squareup.anvil.compiler.internal.buildFile
-import com.squareup.anvil.compiler.internal.joinSimpleNamesAndTruncate
 import com.squareup.anvil.compiler.internal.reference.AnnotationReference
 import com.squareup.anvil.compiler.internal.reference.AnvilCompilationExceptionClassReference
 import com.squareup.anvil.compiler.internal.reference.ClassReference
 import com.squareup.anvil.compiler.internal.reference.MemberFunctionReference
 import com.squareup.anvil.compiler.internal.reference.Visibility.PUBLIC
-import com.squareup.anvil.compiler.internal.reference.asClassId
 import com.squareup.anvil.compiler.internal.reference.asClassName
 import com.squareup.anvil.compiler.internal.reference.classAndInnerClassReferences
-import com.squareup.anvil.compiler.internal.safePackageString
 import com.squareup.anvil.compiler.mergeComponentFqName
 import com.squareup.anvil.compiler.mergeInterfacesFqName
 import com.squareup.anvil.compiler.mergeSubcomponentFqName
