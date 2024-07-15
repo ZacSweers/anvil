@@ -1,11 +1,9 @@
 package com.squareup.anvil.compiler.codegen
 
-import com.google.auto.service.AutoService
 import com.google.devtools.ksp.getVisibility
 import com.google.devtools.ksp.isAbstract
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
-import com.google.devtools.ksp.processing.SymbolProcessorProvider
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSAnnotation
 import com.google.devtools.ksp.symbol.KSClassDeclaration
@@ -13,14 +11,16 @@ import com.google.devtools.ksp.symbol.KSFunctionDeclaration
 import com.google.devtools.ksp.symbol.KSType
 import com.google.devtools.ksp.symbol.Visibility
 import com.google.devtools.ksp.symbol.impl.hasAnnotation
+import com.squareup.anvil.annotations.ContributesSubcomponent
 import com.squareup.anvil.annotations.MergeSubcomponent
+import com.squareup.anvil.annotations.internal.InternalContributedSubcomponentMarker
+import com.squareup.anvil.compiler.BINDING_MODULE_SUFFIX
+import com.squareup.anvil.compiler.BindingSpec
 import com.squareup.anvil.compiler.COMPONENT_PACKAGE_PREFIX
 import com.squareup.anvil.compiler.ClassScannerKsp
 import com.squareup.anvil.compiler.PARENT_COMPONENT
 import com.squareup.anvil.compiler.SUBCOMPONENT_FACTORY
-import com.squareup.anvil.compiler.SUBCOMPONENT_MODULE
 import com.squareup.anvil.compiler.codegen.ksp.AnvilSymbolProcessor
-import com.squareup.anvil.compiler.codegen.ksp.AnvilSymbolProcessorProvider
 import com.squareup.anvil.compiler.codegen.ksp.KspAnvilException
 import com.squareup.anvil.compiler.codegen.ksp.classId
 import com.squareup.anvil.compiler.codegen.ksp.declaringClass
@@ -39,6 +39,7 @@ import com.squareup.anvil.compiler.codegen.ksp.scope
 import com.squareup.anvil.compiler.contributesSubcomponentFactoryFqName
 import com.squareup.anvil.compiler.contributesSubcomponentFqName
 import com.squareup.anvil.compiler.contributesToFqName
+import com.squareup.anvil.compiler.daggerBindingModuleSpec
 import com.squareup.anvil.compiler.internal.asClassName
 import com.squareup.anvil.compiler.internal.createAnvilSpec
 import com.squareup.anvil.compiler.internal.joinSimpleNamesAndTruncate
@@ -52,14 +53,11 @@ import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.KModifier.ABSTRACT
-import com.squareup.kotlinpoet.KModifier.OVERRIDE
 import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.ksp.addOriginatingKSFile
 import com.squareup.kotlinpoet.ksp.toAnnotationSpec
 import com.squareup.kotlinpoet.ksp.toClassName
 import com.squareup.kotlinpoet.ksp.writeTo
-import dagger.Binds
-import dagger.Module
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.Name
 
@@ -82,85 +80,52 @@ import org.jetbrains.kotlin.name.Name
  */
 internal class KspContributesSubcomponentHandlerSymbolProcessor(
   override val env: SymbolProcessorEnvironment,
-  // TODO share this
-  private val classScanner: ClassScannerKsp = ClassScannerKsp(),
+  private val classScanner: ClassScannerKsp,
 ) : AnvilSymbolProcessor() {
 
-  @AutoService(SymbolProcessorProvider::class)
-  class Provider : AnvilSymbolProcessorProvider(
-    applicabilityChecker = { context -> !context.generateFactoriesOnly },
-    delegate = { env -> KspContributesSubcomponentHandlerSymbolProcessor(env) },
-  )
+  /**
+   * Detected triggers that trigger events with [contributions]
+   */
+  private val triggers = LinkedHashSet<Trigger>()
 
-  private val triggers = mutableListOf<Trigger>()
+  /**
+   * [@ContributesSubcomponent][ContributesSubcomponent]-annotated contributions detected.
+   * Computed multiple times, once from the classpath and n+ times from processing rounds.
+   */
   private val contributions = mutableSetOf<Contribution>()
   private val replacedReferences = mutableSetOf<KSClassDeclaration>()
   private val processedEvents = mutableSetOf<GenerateCodeEvent>()
 
   private var isFirstRound = true
+  private var hasComputedEventsThisRound = false
+  private val pendingEvents = mutableListOf<GenerateCodeEvent>()
+
+  fun hasPendingEvents(): Boolean = pendingEvents.isNotEmpty()
 
   override fun processChecked(resolver: Resolver): List<KSAnnotated> {
-    // TODO deferrals?
-    if (isFirstRound) {
-      isFirstRound = false
-      populateInitialContributions(resolver)
+    computePendingEvents(resolver)
+
+    if (pendingEvents.isEmpty()) {
+      return emptyList()
     }
 
-    // Find new @MergeComponent (and similar triggers) that would cause generating new code.
-    triggers += generationTriggers.flatMap { generationTrigger ->
-      resolver.getSymbolsWithAnnotation(generationTrigger.asString())
-        .filterIsInstance<KSClassDeclaration>()
-        .map { annotatedClass ->
-          val annotation = annotatedClass.find(generationTrigger.asString()).single()
-          Trigger(annotatedClass, annotation.scope(), annotation.exclude().toSet())
-        }
-    }
-
-    // Find new contributed subcomponents in this module. If there's a trigger for them, then we
-    // also need to generate code for them later.
-    contributions += resolver.getSymbolsWithAnnotations(contributesSubcomponentFqName)
-      .map {
-        val annotation = it.find(contributesSubcomponentFqName.asString()).single()
-        Contribution(annotation)
-      }
-
-    // Find all replaced subcomponents and remember them.
-    replacedReferences += contributions
-      .flatMap { contribution -> contribution.annotation.replaces() }
-
-    for (contribution in contributions) {
-      checkReplacedSubcomponentWasNotAlreadyGenerated(contribution.clazz, replacedReferences)
-    }
-
-    // Remove any contribution that was replaced by another contribution.
-    contributions.removeAll { it.clazz in replacedReferences }
-
-    contributions
-      .flatMap { contribution ->
-        triggers
-          .filter { trigger ->
-            trigger.scope == contribution.parentScopeType && contribution.clazz !in trigger.exclusions
-          }
-          .map { trigger ->
-            GenerateCodeEvent(trigger, contribution)
-          }
-      }
-      // Don't generate code for the same event twice.
-      .minus(processedEvents)
+    pendingEvents
       .also { processedEvents += it }
       .map { generateCodeEvent ->
         val contribution = generateCodeEvent.contribution
         val generatedAnvilSubcomponent = generateCodeEvent.generatedAnvilSubcomponent
 
+        val generatedClassName = generatedAnvilSubcomponent.asClassName()
         val generatedPackage = generatedAnvilSubcomponent.packageFqName.asString()
-        val componentClassName = generatedAnvilSubcomponent.relativeClassName.asString()
+        val componentClassSimpleName = generatedAnvilSubcomponent.relativeClassName.asString()
 
         val factoryClass = findFactoryClass(contribution, generatedAnvilSubcomponent)
 
-        val spec = FileSpec.createAnvilSpec(generatedPackage, componentClassName) {
+        val contributionClassName = contribution.clazz.toClassName()
+        val spec = FileSpec.createAnvilSpec(generatedPackage, componentClassSimpleName) {
           TypeSpec
-            .interfaceBuilder(componentClassName)
-            .addSuperinterface(contribution.clazz.toClassName())
+            .interfaceBuilder(componentClassSimpleName)
+            .addSuperinterface(contributionClassName)
             .addAnnotation(
               AnnotationSpec
                 .builder(MergeSubcomponent::class)
@@ -188,23 +153,42 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
               contribution.clazz.annotations
                 .filter { it.isDaggerScope() }
                 .map { it.toAnnotationSpec() }
-                .asIterable()
+                .asIterable(),
             )
             .apply {
-              // TODO if there's contributed interfaces, need to generate bindings
-              //  i.e. bind SubcomponentInterface2_5a3cef1f as SubcomponentInterface2
-              if (factoryClass != null) {
-                addType(generateFactory(factoryClass.originalReference))
-                addType(generateDaggerModule(factoryClass.originalReference))
+              env.logger.info("Writing `@MergeSubcomponent` type ${contribution.clazz.fqName}")
+              val parentComponentInterface = findParentComponentInterface(contribution, factoryClass?.originalReference)
+              addAnnotation(
+                AnnotationSpec.builder(InternalContributedSubcomponentMarker::class)
+                  .addMember("originClass = %T::class", contributionClassName)
+                  .apply {
+                    if (factoryClass != null) {
+                      addMember(
+                        "componentFactory = %T::class",
+                        factoryClass.originalReference.toClassName(),
+                      )
+                    } else {
+                      val contributor = parentComponentInterface?.componentInterface ?: generatedClassName.nestedClass(PARENT_COMPONENT)
+                      addMember("contributor = %T::class", contributor)
+                    }
+                  }
+                  .build(),
+              )
+
+              addType(daggerBindingModuleSpec(
+                BINDING_MODULE_SUFFIX,
+                listOf(BindingSpec(impl = generatedClassName, boundType = contributionClassName))
+              ))
+
+              if (parentComponentInterface == null) {
+                addType(
+                  generateParentComponent(
+                    origin = contributionClassName,
+                    factoryClass = factoryClass,
+                  )
+                )
               }
             }
-            .addType(
-              generateParentComponent(
-                contribution,
-                generatedAnvilSubcomponent,
-                factoryClass,
-              ),
-            )
             .addOriginatingKSFile(generateCodeEvent.trigger.clazz.containingFile!!)
             .build()
             .also { addType(it) }
@@ -213,86 +197,89 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
         spec.writeTo(env.codeGenerator, aggregating = true)
       }
 
+    hasComputedEventsThisRound = false
+    pendingEvents.clear()
+
     return emptyList()
   }
 
-  private fun generateFactory(
-    factoryReference: KSClassDeclaration,
-  ): TypeSpec {
-    val superclass = factoryReference.toClassName()
-
-    val builder = if (factoryReference.isInterface()) {
-      TypeSpec
-        .interfaceBuilder(SUBCOMPONENT_FACTORY)
-        .addSuperinterface(superclass)
+  internal fun computePendingEvents(resolver: Resolver) {
+    if (hasComputedEventsThisRound) {
+      // Already computed this round
+      return
     } else {
-      TypeSpec
-        .classBuilder(SUBCOMPONENT_FACTORY)
-        .addModifiers(ABSTRACT)
-        .superclass(superclass)
+      hasComputedEventsThisRound = true
     }
 
-    return builder
-      // TODO dagger doesn't like this in our new KSP world
-      // .addAnnotation(Subcomponent.Factory::class)
-      .build()
-  }
+    if (isFirstRound) {
+      isFirstRound = false
+      populateInitialContributions(resolver)
+    }
 
-  private fun generateDaggerModule(
-    factoryReference: KSClassDeclaration,
-  ): TypeSpec {
-    // This Dagger module will allow injecting the factory instance.
-    return TypeSpec
-      .classBuilder(SUBCOMPONENT_MODULE)
-      .addModifiers(ABSTRACT)
-      .addAnnotation(Module::class)
-      .addFunction(
-        FunSpec
-          .builder("bindSubcomponentFactory")
-          .addAnnotation(Binds::class)
-          .addModifiers(ABSTRACT)
-          .addParameter("factory", ClassName.bestGuess(SUBCOMPONENT_FACTORY))
-          .returns(factoryReference.toClassName())
-          .build(),
-      )
-      .build()
+    // Find new @MergeComponent (and similar triggers) that would cause generating new code.
+    triggers += generationTriggers
+      .flatMap { generationTrigger ->
+        resolver.getSymbolsWithAnnotation(generationTrigger.asString())
+          .filterIsInstance<KSClassDeclaration>()
+          .flatMap { annotatedClass ->
+            annotatedClass.find(generationTrigger.asString())
+              .map { annotation ->
+                Trigger(annotatedClass, annotation.scope(), annotation.exclude().toSet())
+              }
+          }
+      }
+
+    // Find new contributed subcomponents in this module. If there's a trigger for them, then we
+    // also need to generate code for them later.
+    contributions += resolver.getSymbolsWithAnnotations(contributesSubcomponentFqName)
+      .map {
+        val annotation = it.find(contributesSubcomponentFqName.asString()).single()
+        Contribution(annotation)
+      }
+
+    // Find all replaced subcomponents and remember them.
+    replacedReferences += contributions
+      .flatMap { contribution -> contribution.annotation.replaces() }
+
+    for (contribution in contributions) {
+      checkReplacedSubcomponentWasNotAlreadyGenerated(contribution.clazz, replacedReferences)
+    }
+
+    // Remove any contribution that was replaced by another contribution.
+    contributions.removeAll { it.clazz in replacedReferences }
+
+    pendingEvents += contributions
+      .flatMap { contribution ->
+        triggers
+          .filter { trigger ->
+            trigger.scope == contribution.parentScopeType && contribution.clazz !in trigger.exclusions
+          }
+          .map { trigger ->
+            GenerateCodeEvent(trigger, contribution)
+          }
+      }
+      // Don't generate code for the same event twice.
+      .minus(processedEvents)
   }
 
   private fun generateParentComponent(
-    contribution: Contribution,
-    generatedAnvilSubcomponent: ClassId,
+    origin: ClassName,
     factoryClass: FactoryClassHolder?,
   ): TypeSpec {
-    val parentComponentInterface = findParentComponentInterface(
-      contribution,
-      factoryClass?.originalReference,
-    )
-
     return TypeSpec
       .interfaceBuilder(PARENT_COMPONENT)
-      .apply {
-        if (parentComponentInterface != null) {
-          addSuperinterface(parentComponentInterface.componentInterface)
-        }
-      }
       .addFunction(
         FunSpec
           .builder(
-            name = parentComponentInterface
-              ?.functionName
-              ?: factoryClass?.let { "create${it.originalReference.fqName.shortName()}" }
-              ?: "create${generatedAnvilSubcomponent.relativeClassName}",
+            name = factoryClass?.let { "create${it.originalReference.fqName.shortName()}" }
+              ?: "create${origin.simpleName}",
           )
           .addModifiers(ABSTRACT)
           .apply {
-            if (parentComponentInterface != null) {
-              addModifiers(OVERRIDE)
-            }
-
             if (factoryClass != null) {
-              returns(factoryClass.generatedFactoryName)
+              returns(factoryClass.originalReference.toClassName())
             } else {
-              returns(generatedAnvilSubcomponent.asClassName())
+              returns(origin)
             }
           }
           .build(),
@@ -329,8 +316,8 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
     val functions = componentInterface.getAllFunctions()
       .filter { it.isAbstract && it.getVisibility() == Visibility.PUBLIC }
       .filter {
-        val returnType = it.returnType?.resolve()?.declaration ?: return@filter false
-        returnType == contribution.clazz || (factoryClass != null && returnType == factoryClass)
+        val returnType = it.returnTypeOrNull()?.resolveKSClassDeclaration() ?: return@filter false
+        returnType.fqName == contribution.clazz.fqName || (factoryClass != null && returnType.fqName == factoryClass.fqName)
       }
       .toList()
 
@@ -338,7 +325,7 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
       0 -> return null
       1 -> functions[0]
       else -> throw KspAnvilException(
-         node = contribution.clazz,
+        node = contribution.clazz,
         message = "Expected zero or one function returning the " +
           "subcomponent ${contribution.clazz.fqName}.",
       )
@@ -367,12 +354,19 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
           )
         }
 
+        val factoryFqcn = factory.qualifiedName?.asString()
         val implementingType = factory.asType(emptyList())
         val createComponentFunctions = factory.getAllFunctions()
           .filter { it.isAbstract }
-          .filter {
-            it.asMemberOf(implementingType)
-              .returnTypeOrNull()
+          .filter { function ->
+            // Have to check the parent because asMemberOf() isn't safe to call with the
+            // direct parent
+            val returnTypeToCheck = if (function.parentDeclaration?.qualifiedName?.asString() == factoryFqcn) {
+              function.returnTypeOrNull()
+            } else {
+              function.asMemberOf(implementingType).returnTypeOrNull()
+            }
+            returnTypeToCheck
               ?.resolveKSClassDeclaration()
               ?.toClassName() == contributionClassName
           }
@@ -448,7 +442,7 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
   }
 
   private companion object {
-    val generationTriggers = arrayOf(
+    val generationTriggers = sequenceOf(
       mergeComponentFqName,
       mergeSubcomponentFqName,
       // Note that we don't include @MergeModules, because we would potentially generate
@@ -525,6 +519,10 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
   ) {
     val generatedAnvilSubcomponent = contribution.clazz.classId
       .generatedAnvilSubcomponentClassId(trigger.clazz.classId)
+
+    fun pprint(): String {
+      return "${trigger.clazz.simpleName.asString()} + ${contribution.clazz.simpleName.asString()} (${trigger.scope.resolveKSClassDeclaration()?.simpleName?.asString()})"
+    }
   }
 
   private class ParentComponentInterfaceHolder(
