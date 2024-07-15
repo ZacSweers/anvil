@@ -11,6 +11,7 @@ import com.squareup.anvil.compiler.compile
 import com.squareup.anvil.compiler.componentInterface
 import com.squareup.anvil.compiler.contributingInterface
 import com.squareup.anvil.compiler.daggerModule1
+import com.squareup.anvil.compiler.includeKspTests
 import com.squareup.anvil.compiler.internal.testing.AnvilCompilationMode
 import com.squareup.anvil.compiler.internal.testing.ComponentProcessingMode
 import com.squareup.anvil.compiler.internal.testing.extends
@@ -49,12 +50,14 @@ class ContributesSubcomponentHandlerGeneratorTest(
     @JvmStatic
     @Parameters(name = "{0} {1}")
     fun parameters(): Collection<Any> {
-      return listOf(
-        arrayOf(ComponentProcessingMode.NONE, AnvilCompilationMode.Embedded()),
-        arrayOf(ComponentProcessingMode.NONE, AnvilCompilationMode.Ksp()),
-        arrayOf(ComponentProcessingMode.KAPT, AnvilCompilationMode.Embedded()),
-        arrayOf(ComponentProcessingMode.KSP, AnvilCompilationMode.Ksp()),
-      )
+      return buildList {
+        add(arrayOf(ComponentProcessingMode.NONE, AnvilCompilationMode.Embedded()))
+        add(arrayOf(ComponentProcessingMode.KAPT, AnvilCompilationMode.Embedded()))
+        if (includeKspTests()) {
+          add(arrayOf(ComponentProcessingMode.NONE, AnvilCompilationMode.Ksp()))
+          add(arrayOf(ComponentProcessingMode.KSP, AnvilCompilationMode.Ksp()))
+        }
+      }
     }
   }
 
