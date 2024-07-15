@@ -14,6 +14,7 @@ import com.squareup.anvil.compiler.daggerModule1
 import com.squareup.anvil.compiler.internal.testing.AnvilCompilationMode
 import com.squareup.anvil.compiler.internal.testing.ComponentProcessingMode
 import com.squareup.anvil.compiler.internal.testing.extends
+import com.squareup.anvil.compiler.internal.testing.originIfMerged
 import com.squareup.anvil.compiler.internal.testing.resolveIfMerged
 import com.squareup.anvil.compiler.internal.testing.shouldNotExtend
 import com.squareup.anvil.compiler.internal.testing.simpleCodeGenerator
@@ -28,34 +29,34 @@ import dagger.Component
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldEndWith
 import org.jetbrains.kotlin.descriptors.runtime.structure.classId
+import org.junit.Assume.assumeFalse
 import org.junit.Assume.assumeTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.junit.runners.Parameterized
+import org.junit.runners.Parameterized.Parameters
+import java.lang.reflect.Method
 import javax.inject.Singleton
-import kotlin.io.path.createTempDirectory
 import kotlin.test.assertFailsWith
 
-// @RunWith(Parameterized::class)
+@RunWith(Parameterized::class)
 class ContributesSubcomponentHandlerGeneratorTest(
-  // private val componentProcessingMode: ComponentProcessingMode,
-  // private val mode: AnvilCompilationMode,
+  private val componentProcessingMode: ComponentProcessingMode,
+  private val mode: AnvilCompilationMode,
 ) {
 
-  private val componentProcessingMode: ComponentProcessingMode = ComponentProcessingMode.KSP
-  private val mode: AnvilCompilationMode = AnvilCompilationMode.Ksp()
-
-  // companion object {
-  //   @JvmStatic
-  //   @Parameters(name = "{0} {1}")
-  //   fun parameters(): Collection<Any> {
-  //     return listOf(
-  //       // arrayOf(ComponentProcessingMode.NONE, AnvilCompilationMode.Embedded()),
-  //       arrayOf(ComponentProcessingMode.NONE, AnvilCompilationMode.Ksp()),
-  //       // arrayOf(ComponentProcessingMode.KAPT, AnvilCompilationMode.Embedded()),
-  //       // arrayOf(ComponentProcessingMode.KSP, AnvilCompilationMode.Ksp()),
-  //     )
-  //   }
-  // }
-
+  companion object {
+    @JvmStatic
+    @Parameters(name = "{0} {1}")
+    fun parameters(): Collection<Any> {
+      return listOf(
+        arrayOf(ComponentProcessingMode.NONE, AnvilCompilationMode.Embedded()),
+        arrayOf(ComponentProcessingMode.NONE, AnvilCompilationMode.Ksp()),
+        arrayOf(ComponentProcessingMode.KAPT, AnvilCompilationMode.Embedded()),
+        arrayOf(ComponentProcessingMode.KSP, AnvilCompilationMode.Ksp()),
+      )
+    }
+  }
 
   @Test fun `there is a subcomponent generated for a @MergeComponent`() {
     assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
@@ -85,6 +86,8 @@ class ContributesSubcomponentHandlerGeneratorTest(
 
   @Test fun `generation works for a nested contributed subcomponent with a very long name`() {
     assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
+    // This test tests legacy behavior that we no longer need to do in KSP processing
+    assumeFalse(mode is AnvilCompilationMode.Ksp && componentProcessingMode != ComponentProcessingMode.KSP)
 
     // These name lengths are arbitrary. They're long enough to be somewhat realistic,
     // but short enough that most file names won't become obnoxiously long for no reason.
@@ -601,6 +604,8 @@ class ContributesSubcomponentHandlerGeneratorTest(
   @Test
   fun `there is a parent component interface automatically generated without declaring one explicitly`() {
     assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
+    // This test tests legacy behavior that we no longer need to do in KSP processing
+    assumeFalse(mode is AnvilCompilationMode.Ksp && componentProcessingMode != ComponentProcessingMode.KSP)
     compile(
       """
         package com.squareup.test
@@ -630,6 +635,8 @@ class ContributesSubcomponentHandlerGeneratorTest(
   @Test
   fun `the parent component interface extends a manually declared component interface with the same scope`() {
     assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
+    // This test tests legacy behavior that we no longer need to do in KSP processing
+    assumeFalse(mode is AnvilCompilationMode.Ksp && componentProcessingMode != ComponentProcessingMode.KSP)
     compile(
       """
         package com.squareup.test
@@ -673,6 +680,8 @@ class ContributesSubcomponentHandlerGeneratorTest(
   @Test
   fun `the parent component interface extends a manually declared component interface with the same scope with multiple compilations`() {
     assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
+    // This test tests legacy behavior that we no longer need to do in KSP processing
+    assumeFalse(mode is AnvilCompilationMode.Ksp && componentProcessingMode != ComponentProcessingMode.KSP)
     val firstCompilationResult = compile(
       """
         package com.squareup.test
@@ -816,7 +825,8 @@ class ContributesSubcomponentHandlerGeneratorTest(
 
   @Test
   fun `the parent interface of a contributed subcomponent is picked up by components and other contributed subcomponents`() {
-    val dir = createTempDirectory()
+    // This test tests legacy behavior that we no longer need to do in KSP processing
+    assumeFalse(mode is AnvilCompilationMode.Ksp && componentProcessingMode != ComponentProcessingMode.KSP)
     compile(
       """
         package com.squareup.test
@@ -852,9 +862,7 @@ class ContributesSubcomponentHandlerGeneratorTest(
       mode = mode,
       // Keep Dagger enabled, because it complained initially.
       componentProcessingMode = componentProcessingMode,
-      workingDir = dir.toFile()
     ) {
-
       val anvilComponent1 = subcomponentInterface1.anvilComponent(componentInterface1)
 
       assertThat(componentInterface1)
@@ -1039,6 +1047,8 @@ class ContributesSubcomponentHandlerGeneratorTest(
   @Test
   fun `the parent component interface can return a factory`() {
     assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
+    // This test tests legacy behavior that we no longer need to do in KSP processing
+    assumeFalse(mode is AnvilCompilationMode.Ksp && componentProcessingMode != ComponentProcessingMode.KSP)
     compile(
       """
         package com.squareup.test
@@ -1085,6 +1095,8 @@ class ContributesSubcomponentHandlerGeneratorTest(
   @Test
   fun `a factory can be an abstract class`() {
     assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
+    // This test tests legacy behavior that we no longer need to do in KSP processing
+    assumeFalse(mode is AnvilCompilationMode.Ksp && componentProcessingMode != ComponentProcessingMode.KSP)
     compile(
       """
         package com.squareup.test
@@ -1130,6 +1142,8 @@ class ContributesSubcomponentHandlerGeneratorTest(
 
   @Test fun `the generated parent component interface returns the factory if one is present`() {
     assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
+    // This test tests legacy behavior that we no longer need to do in KSP processing
+    assumeFalse(mode is AnvilCompilationMode.Ksp && componentProcessingMode != ComponentProcessingMode.KSP)
     compile(
       """
         package com.squareup.test
@@ -1219,7 +1233,7 @@ class ContributesSubcomponentHandlerGeneratorTest(
         .invoke(daggerComponent)
 
       val subcomponent = factory::class.java.declaredMethods
-        .single { it.returnType == subcomponentInterface }
+        .getMethodReturningA(subcomponentInterface)
         .use { it.invoke(factory, 5) }
 
       val int = subcomponent::class.java.declaredMethods
@@ -1280,7 +1294,7 @@ class ContributesSubcomponentHandlerGeneratorTest(
         .invoke(testClassInstance)
 
       val subcomponent = factory::class.java.declaredMethods
-        .single { it.returnType == subcomponentInterface }
+        .getMethodReturningA(subcomponentInterface)
         .use { it.invoke(factory, 5) }
 
       val int = subcomponent::class.java.declaredMethods
@@ -1336,7 +1350,7 @@ class ContributesSubcomponentHandlerGeneratorTest(
         .invoke(null)
 
       val subcomponent1 = componentInterface2.methods
-        .single()
+        .getMethodReturningA(componentInterface1)
         .invoke(daggerComponent)
 
       val testClassInstance = componentInterface1.declaredMethods
@@ -1348,7 +1362,7 @@ class ContributesSubcomponentHandlerGeneratorTest(
         .invoke(testClassInstance)
 
       val subcomponent2 = factory::class.java.declaredMethods
-        .single { it.returnType == subcomponentInterface }
+        .getMethodReturningA(subcomponentInterface)
         .use { it.invoke(factory, 5) }
 
       val int = subcomponent2::class.java.declaredMethods
@@ -1364,6 +1378,7 @@ class ContributesSubcomponentHandlerGeneratorTest(
     assumeTrue(componentProcessingMode != ComponentProcessingMode.NONE)
     checkFullTestRun()
 
+    println("Compiling project 1")
     val firstCompilationResult = compile(
       """
         package com.squareup.test
@@ -1405,6 +1420,7 @@ class ContributesSubcomponentHandlerGeneratorTest(
       ).isTrue()
     }
 
+    println("Compiling project 2")
     compile(
       """
         package com.squareup.test
@@ -1429,7 +1445,7 @@ class ContributesSubcomponentHandlerGeneratorTest(
         .invoke(daggerComponent)
 
       val subcomponent = factory::class.java.declaredMethods
-        .single { it.returnType == subcomponentInterface }
+        .getMethodReturningA(subcomponentInterface)
         .use { it.invoke(factory, 5) }
 
       val int = subcomponent::class.java.declaredMethods
@@ -1443,6 +1459,8 @@ class ContributesSubcomponentHandlerGeneratorTest(
   @Test
   fun `the correct generated factory is bound`() {
     assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
+    // This test tests legacy behavior that we no longer need to do in KSP processing
+    assumeFalse(mode is AnvilCompilationMode.Ksp && componentProcessingMode != ComponentProcessingMode.KSP)
     compile(
       """
         package com.squareup.test
@@ -1540,7 +1558,7 @@ class ContributesSubcomponentHandlerGeneratorTest(
         .single { it.name == "create" }
         .invoke(null)
 
-      val testClassInstance1 = componentInterface1.declaredMethods
+      val testClassInstance1 = componentInterface1.methods
         .single { it.name == "testClass" }
         .invoke(daggerComponent1)
 
@@ -1548,16 +1566,21 @@ class ContributesSubcomponentHandlerGeneratorTest(
         .single { it.name == "getFactory" }
         .invoke(testClassInstance1)
 
+      val mergedPrefix = if (componentProcessingMode == ComponentProcessingMode.KSP) {
+        "Merged"
+      } else {
+        ""
+      }
       assertThat(factory1::class.java.name)
         .isEqualTo(
-          "com.squareup.test.DaggerComponentInterface1\$SubcomponentInterface_30237c4fFactory",
+          "${componentInterface1.daggerComponent.canonicalName}\$${mergedPrefix}SubcomponentInterface_30237c4fFactory",
         )
 
       val daggerComponent2 = componentInterface2.daggerComponent.declaredMethods
         .single { it.name == "create" }
         .invoke(null)
 
-      val testClassInstance2 = componentInterface2.declaredMethods
+      val testClassInstance2 = componentInterface2.methods
         .single { it.name == "testClass" }
         .invoke(daggerComponent2)
 
@@ -1567,7 +1590,7 @@ class ContributesSubcomponentHandlerGeneratorTest(
 
       assertThat(factory2::class.java.name)
         .isEqualTo(
-          "com.squareup.test.DaggerComponentInterface2\$SubcomponentInterface_42b84d1bFactory",
+          "${componentInterface2.daggerComponent.canonicalName}\$${mergedPrefix}SubcomponentInterface_42b84d1bFactory",
         )
     }
   }
@@ -1682,11 +1705,11 @@ class ContributesSubcomponentHandlerGeneratorTest(
         .invoke(null)
 
       val subcomponent1 = componentInterface1.methods
-        .single()
+        .getMethodReturningA(subcomponentInterface1)
         .invoke(daggerComponent)
 
       val subcomponent2 = subcomponent1::class.java.declaredMethods
-        .single()
+        .getMethodReturningA(subcomponentInterface2)
         .use { it.invoke(subcomponent1) }
 
       val int = subcomponent2::class.java.declaredMethods
@@ -1730,11 +1753,11 @@ class ContributesSubcomponentHandlerGeneratorTest(
         .invoke(null)
 
       val subcomponent1 = componentInterface2.methods
-        .single()
+        .getMethodReturningA(subcomponentInterface1)
         .invoke(daggerComponent)
 
       val subcomponent2 = subcomponent1::class.java.declaredMethods
-        .single()
+        .getMethodReturningA(subcomponentInterface2)
         .use { it.invoke(subcomponent1) }
 
       val int = subcomponent2::class.java.declaredMethods
@@ -2149,9 +2172,9 @@ class ContributesSubcomponentHandlerGeneratorTest(
   // E.g. anvil.component.com.squareup.test.componentinterface.SubcomponentInterfaceA
   private fun Class<*>.anvilComponent(parent: Class<*>): Class<*> {
     return classLoader.loadClass(
-      classId.generatedAnvilSubcomponentClassId(parent.classId)
+      classId.generatedAnvilSubcomponentClassId(parent.originIfMerged().classId)
         .asFqNameString(),
-    )
+    ).resolveIfMerged()
   }
 
   private val Class<*>.anyParentComponentInterface: Class<*>
@@ -2166,6 +2189,7 @@ class ContributesSubcomponentHandlerGeneratorTest(
   private val Class<*>.componentFactory: Class<*>
     get() = classLoader.loadClass("$canonicalName\$ComponentFactory")
 
+  @Suppress("Since15")
   private val Class<*>.daggerComponent: Class<*>
     get() = classLoader.loadClass("$packageName.Dagger$simpleName")
 
@@ -2175,13 +2199,31 @@ class ContributesSubcomponentHandlerGeneratorTest(
 
   private val JvmCompilationResult.componentInterface2: Class<*>
     get() = classLoader.loadClass("com.squareup.test.ComponentInterface2")
+      .resolveIfMerged()
 
   private val JvmCompilationResult.subcomponentInterface1: Class<*>
     get() = classLoader.loadClass("com.squareup.test.SubcomponentInterface1")
+      .resolveIfMerged()
 
   private val JvmCompilationResult.subcomponentInterface2: Class<*>
     get() = classLoader.loadClass("com.squareup.test.SubcomponentInterface2")
+      .resolveIfMerged()
 
   private val JvmCompilationResult.subcomponentInterface3: Class<*>
     get() = classLoader.loadClass("com.squareup.test.SubcomponentInterface3")
+      .resolveIfMerged()
+
+  private fun Array<Method>.getMethodReturningA(clazz: Class<*>): Method {
+    // We may have multiple methods that return the direct class or subtype. In this
+    // scenario, we prefer the direct equals method.
+    return firstOrNull { it.returnType == clazz }
+      ?: firstOrNull { it.returnType.extends(clazz) }
+      ?: throw AssertionError(
+        "Method returning $clazz not found. Available methods are ${
+          joinToString(
+            "\n",
+          )
+        }",
+      )
+  }
 }
