@@ -1197,7 +1197,11 @@ private fun Creator.extend(
    }
    */
   val creatorSpec = builder
-    .addAnnotations(declaration.annotations.map(KSAnnotation::toAnnotationSpec).asIterable())
+    .addAnnotations(
+      declaration.annotations.map(KSAnnotation::toAnnotationSpec)
+        .filterNot { it.typeName == contributesSubcomponentFactoryClassName }
+        .asIterable()
+    )
     .apply {
       for (function in declaration.getDeclaredFunctions()) {
         // Only add the function we need to override and update the type
