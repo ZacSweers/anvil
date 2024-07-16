@@ -223,6 +223,7 @@ internal class KspContributionMerger(
           originatingDeclarations += creatorDecl
           resolvedCreator = Creator.fromDeclaration(
             declaration = creatorDecl,
+            mergeAnnotatedClassName = mergeAnnotatedClass.toClassName(),
             generatedComponentClassName = generatedComponentClassName,
           )
         }
@@ -230,7 +231,7 @@ internal class KspContributionMerger(
       resolvedCreator ?: mergeAnnotatedClass.declarations
         .filterIsInstance<KSClassDeclaration>()
         .firstNotNullOfOrNull { nestedClass ->
-          Creator.fromDeclaration(nestedClass, generatedComponentClassName)
+          Creator.fromDeclaration(nestedClass, mergeAnnotatedClass.toClassName(), generatedComponentClassName)
         }
     } else {
       null
@@ -1388,6 +1389,7 @@ internal sealed interface Creator {
   companion object {
     fun fromDeclaration(
       declaration: KSClassDeclaration,
+      mergeAnnotatedClassName: ClassName,
       generatedComponentClassName: ClassName,
     ): Creator? {
       var foundCreator = false
@@ -1431,7 +1433,7 @@ internal sealed interface Creator {
         val daggerFunSpec = if (daggerAnnotation == Component.Factory::class) {
           FunSpec.builder("factory")
             .addAnnotation(JvmStatic::class)
-            .returns(generatedComponentClassName.nestedClass(declaration.simpleName.asString()))
+            .returns(mergeAnnotatedClassName.nestedClass(declaration.simpleName.asString()))
             .addStatement(
               "return Dagger${
                 generatedComponentClassName.simpleName
@@ -1453,7 +1455,7 @@ internal sealed interface Creator {
         val daggerFunSpec = if (daggerAnnotation == Component.Builder::class) {
           FunSpec.builder("builder")
             .addAnnotation(JvmStatic::class)
-            .returns(generatedComponentClassName.nestedClass(declaration.simpleName.asString()))
+            .returns(mergeAnnotatedClassName.nestedClass(declaration.simpleName.asString()))
             .addStatement(
               "return Dagger${
                 generatedComponentClassName.simpleName
