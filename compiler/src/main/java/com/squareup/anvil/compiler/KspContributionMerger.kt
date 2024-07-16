@@ -67,6 +67,7 @@ import com.squareup.kotlinpoet.KModifier.OVERRIDE
 import com.squareup.kotlinpoet.NOTHING
 import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.joinToCode
+import com.squareup.kotlinpoet.ksp.addOriginatingKSFile
 import com.squareup.kotlinpoet.ksp.toAnnotationSpec
 import com.squareup.kotlinpoet.ksp.toClassName
 import com.squareup.kotlinpoet.ksp.writeTo
@@ -74,6 +75,7 @@ import dagger.Binds
 import dagger.Component
 import dagger.Module
 import dagger.Subcomponent
+import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import kotlin.reflect.KClass
 
@@ -95,7 +97,8 @@ internal class KspContributionMerger(
   private val contributesSubcomponentHandler: KspContributesSubcomponentHandlerSymbolProcessor,
 ) : AnvilSymbolProcessor() {
 
-  private val deferredContributedSubcomponents = mutableSetOf<String>()
+  private val contributedSubcomponentDataCache =
+    mutableMapOf<FqName, ContributedSubcomponentData?>()
 
   override fun processChecked(
     resolver: Resolver,
@@ -206,9 +209,7 @@ internal class KspContributionMerger(
       .mergedClassName()
 
     val contributedSubcomponentData =
-      mergeAnnotatedClass.getKSAnnotationsByType(InternalContributedSubcomponentMarker::class)
-        .singleOrNull()
-        ?.let(ContributedSubcomponentData::fromAnnotation)
+      mergeAnnotatedClass.getOrComputeContributedSubcomponentData()
 
     val creator = if (mergeComponentAnnotations.isNotEmpty()) {
       // if we have contributed data, use the factory information from there
@@ -319,10 +320,6 @@ internal class KspContributionMerger(
       }
       // Every generated merged component will have a binding module to map it back to the
       // root type
-      // TODO can we make this backward-compatible? Chicken-and-egg because we can't check if
-      //  it exists but also can't safely assume it.
-      //  - Option 1 - require KSP all the way
-      //  - Option 2 - add empty modules in K1 support + require recompilation
       .plus(generatedComponentClassName.nestedClass(BINDING_MODULE_SUFFIX))
 
     val allContributesAnnotations: List<KSAnnotation> = annotations
@@ -796,13 +793,6 @@ internal class KspContributionMerger(
         }
         daggerAnnotation?.let { addAnnotation(it) }
 
-        // Copy over any @ContributesTo annotations to the generated type
-        // mergeAnnotatedClass
-        //   .getKSAnnotationsByType(ContributesTo::class)
-        //   .forEach {
-        //     addAnnotation(it.toAnnotationSpec())
-        //   }
-
         contributedInterfaces?.forEach { contributedInterface ->
           addSuperinterface(contributedInterface)
         }
@@ -875,6 +865,7 @@ internal class KspContributionMerger(
           }
         }
       }
+      .addOriginatingKSFile(mergeAnnotatedClass.containingFile!!)
       .build()
 
     val spec = FileSpec.createAnvilSpec(
@@ -893,11 +884,7 @@ internal class KspContributionMerger(
     }
 
     // Aggregating because we read symbols from the classpath
-    spec.writeTo(
-      env.codeGenerator,
-      aggregating = true,
-      originatingKSFiles = listOf(mergeAnnotatedClass.containingFile!!),
-    )
+    spec.writeTo(env.codeGenerator, aggregating = true)
   }
 
   private inline fun Sequence<KSClassDeclaration>.validate(
@@ -959,19 +946,14 @@ internal class KspContributionMerger(
           .generatedAnvilSubcomponentClassId(declaration.classId)
 
         val generatedMergeSubcomponentDeclaration = resolver.getClassDeclarationByName(
-          resolver.getKSNameFromString(generatedMergeSubcomponentId.asSingleFqName().toString()),
+          generatedMergeSubcomponentId.asSingleFqName().toString(),
         )
         if (generatedMergeSubcomponentDeclaration == null) {
           return@flatMap emptyList()
         }
 
-        // TODO can we cache this data somewhere? Looked up for annotations too. Maybe in ClassScanner?
         val contributedSubcomponentData =
-          generatedMergeSubcomponentDeclaration.getKSAnnotationsByType(
-            InternalContributedSubcomponentMarker::class,
-          )
-            .singleOrNull()
-            ?.let(ContributedSubcomponentData::fromAnnotation)
+          generatedMergeSubcomponentDeclaration.getOrComputeContributedSubcomponentData()
 
         if (contributedSubcomponentData != null) {
           // This is using our new mechanism
@@ -991,29 +973,12 @@ internal class KspContributionMerger(
             val subcomponentCn = mergedSubcomponentCn.nestedClass(SUBCOMPONENT_MODULE)
             modulesToReturn += subcomponentCn
           }
-          return@flatMap modulesToReturn
+          modulesToReturn
+        } else {
+          generatedMergeSubcomponentId
+            .createNestedClassId(Name.identifier(SUBCOMPONENT_MODULE))
+            .let { classId -> listOf(classId.asClassName()) }
         }
-
-        generatedMergeSubcomponentId
-          .createNestedClassId(Name.identifier(SUBCOMPONENT_MODULE))
-          .let { classId ->
-            val topLevelModule = resolver.getClassDeclarationByName(
-              resolver.getKSNameFromString(
-                classId.asSingleFqName()
-                  .toString(),
-              ),
-            )
-            val topLevelModuleClassName = topLevelModule?.toClassName()
-
-            // Can't use resolveMergedType() here because it's not generated yet
-            val mergedTypeModule = (topLevelModule?.parentDeclaration as KSClassDeclaration?)
-              ?.toClassName()
-              ?.mergedClassName()
-              ?.nestedClass(SUBCOMPONENT_MODULE)
-
-            // TODO in KSP we only need the merged type, but in K1 we need topLevelModuleClassName
-            listOfNotNull(topLevelModuleClassName, mergedTypeModule)
-          }
       }
   }
 
@@ -1049,13 +1014,8 @@ internal class KspContributionMerger(
           resolver.getKSNameFromString(generatedMergeSubcomponentId.asSingleFqName().toString()),
         )
 
-        // TODO can we cache this data somewhere? Looked up for annotations too
         val contributedSubcomponentData =
-          generatedMergeSubcomponentDeclaration?.getKSAnnotationsByType(
-            InternalContributedSubcomponentMarker::class,
-          )
-            ?.singleOrNull()
-            ?.let(ContributedSubcomponentData::fromAnnotation)
+          generatedMergeSubcomponentDeclaration?.getOrComputeContributedSubcomponentData()
 
         if (contributedSubcomponentData != null) {
           // This is using our new mechanism
@@ -1071,30 +1031,30 @@ internal class KspContributionMerger(
             // The parent component is in the contributed subcomponent itself
             parentComponentClassNames += contributedSubcomponentData.contributor
           }
-          return@flatMap parentComponentClassNames
+          parentComponentClassNames
+        } else {
+          // Fall back to old mechanism
+          generatedMergeSubcomponentId
+            .createNestedClassId(Name.identifier(PARENT_COMPONENT))
+            .let { classId -> listOf(classId.asClassName()) }
         }
-
-        // Fall back to old mechanism
-        generatedMergeSubcomponentId
-          .createNestedClassId(Name.identifier(PARENT_COMPONENT))
-          .let { classId ->
-            val parentComponent = resolver.getClassDeclarationByName(
-              resolver.getKSNameFromString(
-                classId.asSingleFqName()
-                  .toString(),
-              ),
-            )
-            val parentComponentCn = parentComponent?.toClassName()
-            val mergedTypeParentComponent = parentComponent?.let {
-              val simpleName = it.simpleName.asString()
-              (it.parentDeclaration as KSClassDeclaration).toClassName()
-                .mergedClassName()
-                .nestedClass(simpleName)
-            }
-            // TODO in KSP we only need the merged type, but in K1 we need parentComponentCn
-            listOfNotNull(parentComponentCn, mergedTypeParentComponent)
-          }
       }
+  }
+
+  private fun KSClassDeclaration.getOrComputeContributedSubcomponentData(): ContributedSubcomponentData? {
+    val fqName = this.fqName
+    // Can't use getOrPut because it doesn't differentiate null from absent
+    if (fqName in contributedSubcomponentDataCache) {
+      return contributedSubcomponentDataCache.getValue(fqName)
+    } else {
+      val value = getKSAnnotationsByType(
+        InternalContributedSubcomponentMarker::class,
+      )
+        .singleOrNull()
+        ?.let(ContributedSubcomponentData::fromAnnotation)
+      contributedSubcomponentDataCache[fqName] = value
+      return value
+    }
   }
 }
 
