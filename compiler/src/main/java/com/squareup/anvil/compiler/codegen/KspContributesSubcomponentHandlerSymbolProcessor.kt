@@ -95,11 +95,6 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
    */
   private val contributions = mutableSetOf<Contribution>()
 
-  /**
-   * Externally-contributed contributions, which are important to track so that we don't try to
-   * add originating files for them when generating code.
-   */
-  private val externalContributions = mutableSetOf<FqName>()
   private val replacedReferences = mutableSetOf<KSClassDeclaration>()
   private val processedEvents = mutableSetOf<GenerateCodeEvent>()
 
@@ -207,8 +202,7 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
             }
             .addOriginatingKSFile(generateCodeEvent.trigger.clazz.containingFile!!)
             .apply {
-              val contributionFqName = generateCodeEvent.contribution.clazz.fqName
-              if (contributionFqName !in externalContributions) {
+              if (!classScanner.isExternallyContributed(generateCodeEvent.contribution.clazz)) {
                 addOriginatingKSFile(generateCodeEvent.contribution.clazz.containingFile!!)
               }
             }
@@ -216,6 +210,7 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
             .also(::addType)
         }
 
+        // Aggregating because we read symbols from the classpath
         spec.writeTo(env.codeGenerator, aggregating = true)
       }
 
@@ -458,9 +453,6 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
         Contribution(
           annotation = clazz.annotations.single { it.fqName == contributesSubcomponentFqName },
         )
-      }
-      .onEach {
-        externalContributions += it.clazz.fqName
       }
 
     // Find all replaced subcomponents from precompiled dependencies.
