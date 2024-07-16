@@ -223,7 +223,6 @@ internal class KspContributionMerger(
           originatingDeclarations += creatorDecl
           resolvedCreator = Creator.fromDeclaration(
             declaration = creatorDecl,
-            mergeAnnotatedClass = mergeAnnotatedClass,
             generatedComponentClassName = generatedComponentClassName,
           )
         }
@@ -231,7 +230,7 @@ internal class KspContributionMerger(
       resolvedCreator ?: mergeAnnotatedClass.declarations
         .filterIsInstance<KSClassDeclaration>()
         .firstNotNullOfOrNull { nestedClass ->
-          Creator.fromDeclaration(nestedClass, mergeAnnotatedClass, generatedComponentClassName)
+          Creator.fromDeclaration(nestedClass, generatedComponentClassName)
         }
     } else {
       null
@@ -851,17 +850,20 @@ internal class KspContributionMerger(
             ),
           )
 
-          // Generate a ParentComponent for the factory type
+          //
+          // Generate a ParentComponent for the factory type if this is a subcomponent.
           //
           // interface ParentComponent {
           //   fun createComponentFactory(): ComponentFactory
           // }
           //
-          addType(
-            generateParentComponentForFactory(
-              factoryClassName = generatedComponentClassName.nestedClass(creatorSpec.name!!),
-            ),
-          )
+          if (mergeAnnotatedClass.isAnnotationPresent<MergeSubcomponent>()) {
+            addType(
+              generateParentComponentForFactory(
+                factoryClassName = generatedComponentClassName.nestedClass(creatorSpec.name!!),
+              ),
+            )
+          }
         }
 
         // Add the binding module
@@ -1372,7 +1374,6 @@ internal sealed interface Creator {
   companion object {
     fun fromDeclaration(
       declaration: KSClassDeclaration,
-      mergeAnnotatedClass: KSClassDeclaration,
       generatedComponentClassName: ClassName,
     ): Creator? {
       var foundCreator = false
