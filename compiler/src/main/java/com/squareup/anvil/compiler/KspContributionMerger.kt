@@ -16,13 +16,14 @@ import com.google.devtools.ksp.symbol.KSTypeReference
 import com.google.devtools.ksp.symbol.KSValueArgument
 import com.google.devtools.ksp.symbol.KSVisitor
 import com.google.devtools.ksp.symbol.Visibility
-import com.google.devtools.ksp.symbol.impl.hasAnnotation
 import com.squareup.anvil.annotations.ContributesBinding
+import com.squareup.anvil.annotations.ContributesMultibinding
 import com.squareup.anvil.annotations.ContributesTo
 import com.squareup.anvil.annotations.MergeComponent
 import com.squareup.anvil.annotations.MergeSubcomponent
 import com.squareup.anvil.annotations.compat.MergeInterfaces
 import com.squareup.anvil.annotations.compat.MergeModules
+import com.squareup.anvil.annotations.internal.InternalBindingMarker
 import com.squareup.anvil.annotations.internal.InternalContributedSubcomponentMarker
 import com.squareup.anvil.annotations.internal.InternalMergedTypeMarker
 import com.squareup.anvil.compiler.codegen.KspContributesSubcomponentHandlerSymbolProcessor
@@ -388,7 +389,7 @@ internal class KspContributionMerger(
       .toList()
 
     val (bindingModuleContributesAnnotations, contributesAnnotations) = allContributesAnnotations.partition {
-      it.declaringClass.hasAnnotation(internalBindingMarkerFqName.asString())
+      it.declaringClass.isAnnotationPresent<InternalBindingMarker>()
     }
 
     val excludedModules = annotations
@@ -443,9 +444,9 @@ internal class KspContributionMerger(
           .onEach { classToReplace ->
             // Verify has @Module annotation. It doesn't make sense for a Dagger module to
             // replace a non-Dagger module.
-            if (!classToReplace.hasAnnotation(daggerModuleFqName.asString()) &&
-              !classToReplace.hasAnnotation(contributesBindingFqName.asString()) &&
-              !classToReplace.hasAnnotation(contributesMultibindingFqName.asString())
+            if (!classToReplace.isAnnotationPresent<Module>() &&
+              !classToReplace.isAnnotationPresent<ContributesBinding>() &&
+              !classToReplace.isAnnotationPresent<ContributesMultibinding>()
             ) {
               val origin = contributedClass.originClass()
               throw KspAnvilException(
@@ -1243,10 +1244,10 @@ private fun Sequence<KSClassDeclaration>.resolveMergedTypes(
 }
 
 private fun KSClassDeclaration.resolveMergedType(resolver: Resolver): KSClassDeclaration {
-  val isMergedType = hasAnnotation(mergeModulesFqName.asString()) ||
-    hasAnnotation(mergeInterfacesFqName.asString()) ||
-    hasAnnotation(mergeComponentFqName.asString()) ||
-    hasAnnotation(mergeSubcomponentFqName.asString())
+  val isMergedType = isAnnotationPresent<MergeModules>() ||
+    isAnnotationPresent<MergeInterfaces>() ||
+    isAnnotationPresent<MergeComponent>() ||
+    isAnnotationPresent<MergeSubcomponent>()
   return if (isMergedType) {
     resolver.getClassDeclarationByName(
       toClassName().mergedClassName().canonicalName,
