@@ -1212,7 +1212,7 @@ private fun Creator.extend(
             // Handles fluent builder functions
             addFunction(
               function.toFunSpec().toBuilder()
-                .addModifiers(OVERRIDE)
+                .addModifiers(OVERRIDE, ABSTRACT)
                 .returns(newClassName)
                 .build(),
             )
@@ -1224,7 +1224,7 @@ private fun Creator.extend(
                 .apply {
                   annotations.removeIf { it.typeName.findRawType()?.fqName == contributesSubcomponentFactoryFqName }
                 }
-                .addModifiers(OVERRIDE)
+                .addModifiers(OVERRIDE, ABSTRACT)
                 .returns(generatedComponentClassName)
                 .build(),
             )
