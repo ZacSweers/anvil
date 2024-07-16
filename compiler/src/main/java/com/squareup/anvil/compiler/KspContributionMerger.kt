@@ -231,7 +231,11 @@ internal class KspContributionMerger(
       resolvedCreator ?: mergeAnnotatedClass.declarations
         .filterIsInstance<KSClassDeclaration>()
         .firstNotNullOfOrNull { nestedClass ->
-          Creator.fromDeclaration(nestedClass, mergeAnnotatedClass.toClassName(), generatedComponentClassName)
+          Creator.fromDeclaration(
+            nestedClass,
+            mergeAnnotatedClass.toClassName(),
+            generatedComponentClassName,
+          )
         }
     } else {
       null
@@ -1217,7 +1221,14 @@ private fun Creator.extend(
   val creatorSpec = builder
     .addAnnotations(
       declaration.annotations.map(KSAnnotation::toAnnotationSpec)
-        .filterNot { it.typeName == contributesSubcomponentFactoryClassName }
+        .filterNot {
+          // Don't copy over our custom creator annotations
+          it.typeName == contributesSubcomponentFactoryClassName ||
+            it.typeName == mergeComponentFactoryClassName ||
+            it.typeName == mergeComponentBuilderClassName ||
+            it.typeName == mergeSubcomponentFactoryClassName ||
+            it.typeName == mergeSubcomponentBuilderClassName
+        }
         .asIterable(),
     )
     .apply {
