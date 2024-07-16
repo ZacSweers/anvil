@@ -74,7 +74,7 @@ Once you have KSP contributions working, you can enable component merging.
 anvil {
   useKsp(
     contributesAndFactoryGeneration = true,
-    componentMerging = false,
+    componentMerging = true,
   )
 }
 
