@@ -5,10 +5,12 @@ import com.squareup.anvil.compiler.api.ComponentMergingBackend
 import com.squareup.anvil.compiler.internal.testing.AnvilCompilationMode
 import com.squareup.anvil.compiler.internal.testing.ComponentProcessingMode
 import com.tschuchort.compiletesting.KotlinCompilation.ExitCode
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 
 class KspMergeAnnotationsCheckSymbolProcessorTest {
   @Test fun `dagger creator annotations - component factory`() {
+    assumeTrue(includeKspTests())
     compile(
       """
       package com.squareup.test
@@ -38,6 +40,7 @@ class KspMergeAnnotationsCheckSymbolProcessorTest {
   }
 
   @Test fun `dagger creator annotations - component builder`() {
+    assumeTrue(includeKspTests())
     compile(
       """
       package com.squareup.test
@@ -67,6 +70,7 @@ class KspMergeAnnotationsCheckSymbolProcessorTest {
   }
 
   @Test fun `dagger creator annotations - subcomponent factory`() {
+    assumeTrue(includeKspTests())
     compile(
       """
       package com.squareup.test
@@ -96,6 +100,7 @@ class KspMergeAnnotationsCheckSymbolProcessorTest {
   }
 
   @Test fun `dagger creator annotations - subcomponent builder`() {
+    assumeTrue(includeKspTests())
     compile(
       """
       package com.squareup.test
@@ -125,6 +130,7 @@ class KspMergeAnnotationsCheckSymbolProcessorTest {
   }
 
   @Test fun `dagger creator annotations - mergecomponent factory`() {
+    assumeTrue(includeKspTests())
     compile(
       """
       package com.squareup.test
@@ -147,6 +153,7 @@ class KspMergeAnnotationsCheckSymbolProcessorTest {
   }
 
   @Test fun `dagger creator annotations - mergecomponent builder`() {
+    assumeTrue(includeKspTests())
     compile(
       """
       package com.squareup.test
@@ -169,6 +176,7 @@ class KspMergeAnnotationsCheckSymbolProcessorTest {
   }
 
   @Test fun `dagger creator annotations - mergesubcomponent factory`() {
+    assumeTrue(includeKspTests())
     compile(
       """
       package com.squareup.test
@@ -191,6 +199,7 @@ class KspMergeAnnotationsCheckSymbolProcessorTest {
   }
 
   @Test fun `dagger creator annotations - mergesubcomponent builder`() {
+    assumeTrue(includeKspTests())
     compile(
       """
       package com.squareup.test
