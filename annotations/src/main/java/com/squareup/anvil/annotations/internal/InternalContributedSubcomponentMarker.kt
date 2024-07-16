@@ -7,66 +7,83 @@ import kotlin.reflect.KClass
  * When using [ContributesSubcomponent], we generate some extra information based on the source
  * class.
  *
- * There are two types of contribution supported.
+ * There are three types of contribution supported.
  *
  * ## Factory
  *
  * ```kotlin
  * @ContributesSubcomponent(UserScope::class, parentScope = AppScope::class)
- * interface UserComponent {
+ * interface UserSubcomponent {
  *   @ContributesSubcomponent.Factory
  *   interface ComponentFactory {
  *     fun createComponent(
  *       @BindsInstance integer: Int
- *     ): UserComponent
+ *     ): UserSubcomponent
  *   }
  *
  *   fun integer(): Int
  * }
  * ```
  *
- * In this case, [componentFactory] will be set to the `ComponentFactory` interface. This in turn
- * will generate code like so.
+ * In this case, [componentFactory] will be set to the `ComponentFactory` interface and a parent
+ * component interface will be generated to contribute the factory to the parent scope. This in
+ * turn will generate code like so.
  *
  * ```kotlin
- * // Intermediate merge class
+ * // Intermediate mergeable class
+ * @MergeSubcomponent(scope = UserScope::class)
  * @InternalContributedSubcomponentMarker(
- *   originClass = UserComponent::class,
- *   componentFactory = UserComponent.ComponentFactory::class
+ *   originClass = UserSubcomponent::class,
+ *   componentFactory = UserSubcomponent.ComponentFactory::class,
  * )
- * @MergeSubcomponent(scope = Any::class)
- * interface UserComponent_0536E4Be : UserComponent
- *
- * // Final merged classes
- * @Subcomponent(includes = [MergedUserComponent_0536E4Be.BindingModule::class])
- * interface MergedUserComponent_0536E4Be : UserComponent_0536E4Be {
+ * public interface UserSubcomponent_12c9cde5 : UserSubcomponent {
  *   @Module
- *   interface BindingModule {
+ *   public interface BindingModule {
  *     @Binds
- *     fun bindComponent(impl: MergedUserComponent_0536E4Be): UserComponent
+ *     public fun bindUserSubcomponent_12c9cde5(impl: UserSubcomponent_12c9cde5): UserSubcomponent
  *   }
  *
- *   @Module
- *   interface SubcomponentModule {
- *     @Binds
- *     fun bindComponentFactory(impl: ComponentFactory): UserComponent.ComponentFactory
- *   }
- *
- *   @Subcomponent.Factory
- *   interface ComponentFactory : UserComponent.ComponentFactory {
- *     override fun createComponent(@BindsInstance integer: Int): MergedUserComponent_0536E4Be
- *   }
- *
- *   interface ParentComponent {
- *     fun createComponentFactory(): ComponentFactory
+ *   public interface ParentComponent {
+ *     public fun createComponentFactory(): UserSubcomponent.ComponentFactory
  *   }
  * }
  *
- * @Component(modules = [MergedUserComponent_0536E4Be.SubcomponentModule::class])
- * interface MergedAppComponent : AppComponent, MergedUserComponent_0536E4Be.ParentComponent {
- *   @Component.Factory
- *   fun interface AppComponentFactory : AppComponent.Factory {
- *     override fun create(): MergedAppComponent
+ * // Final merged classes
+ * @InternalMergedTypeMarker(
+ *   originClass = UserSubcomponent_12c9cde5::class,
+ *   scope = UserScope::class,
+ * )
+ * @Subcomponent(
+ *   modules = [
+ *     UserSubcomponent_12c9cde5.BindingModule::class,
+ *     MergedUserSubcomponent_12c9cde5.BindingModule::class
+ *   ]
+ * )
+ * public interface MergedUserSubcomponent_12c9cde5 : UserSubcomponent_12c9cde5 {
+ *   @Subcomponent.Factory
+ *   public interface ComponentFactory : UserSubcomponent.ComponentFactory
+ *
+ *   @Module
+ *   public abstract class SubcomponentModule {
+ *     @Binds
+ *     public abstract fun bindSubcomponentFactory(
+ *       factory: ComponentFactory
+ *     ): UserSubcomponent.ComponentFactory
+ *   }
+ *
+ *   public interface ParentComponent {
+ *     public fun createComponentFactory(): ComponentFactory
+ *   }
+ *
+ *   @Module
+ *   public interface BindingModule {
+ *     @Binds
+ *     public fun bindMergedUserSubcomponent_12c9cde5(
+ *       impl: MergedUserSubcomponent_12c9cde5
+ *     ): UserSubcomponent_12c9cde5
+ *
+ *     @Binds
+ *     public fun bindComponentFactory(impl: ComponentFactory): UserSubcomponent.ComponentFactory
  *   }
  * }
  * ```
@@ -75,43 +92,111 @@ import kotlin.reflect.KClass
  *
  * ```kotlin
  * @ContributesSubcomponent(UserScope::class, parentScope = AppScope::class)
- * interface UserComponent {
+ * interface UserSubcomponent {
  *   @ContributesTo(AppScope::class)
  *   interface UserScopeParentComponent {
- *     fun createComponent(): UserComponent
+ *     fun createComponent(): UserSubcomponent
  *   }
  * }
  * ```
+ *
  * In this case, [contributor] will be set to the `UserScopeParentComponent` interface. This in turn
  * will generate code like so.
  *
  * ```kotlin
  * // Intermediate merge class
- * @MergeSubcomponent(scope = Any::class)
- * interface UserComponent_0536E4Be : UserComponent
- *
- * // Final merged classes
+ * @MergeSubcomponent(scope = UserScope::class)
  * @InternalContributedSubcomponentMarker(
- *   originClass = UserComponent::class,
- *   contributor = UserComponent.UserScopeParentComponent::class
+ *   originClass = UserSubcomponent::class,
+ *   contributor = UserSubcomponent.UserScopeParentComponent::class,
  * )
- * @Subcomponent(modules = [MergedUserComponent_0536E4Be.BindingModule::class])
- * interface MergedUserComponent_0536E4Be : UserComponent_0536E4Be {
+ * public interface UserSubcomponent_12c9cde5 : UserSubcomponent {
  *   @Module
- *   interface BindingModule {
+ *   public interface BindingModule {
  *     @Binds
- *     fun bindComponent(impl: MergedUserComponent_0536E4Be): UserComponent
- *   }
- *
- *   interface ParentComponent : UserComponent.UserScopeParentComponent {
- *     override fun createComponent(): MergedUserComponent_0536E4Be
+ *     public fun bindUserSubcomponent_12c9cde5(impl: UserSubcomponent_12c9cde5): UserSubcomponent
  *   }
  * }
  *
- * @Component
- * interface MergedAppComponent : AppComponent,
- *   UserComponent.UserScopeParentComponent,
- *   MergedUserComponent_0536E4Be.ParentComponent
+ * // Final merged classes
+ * @InternalMergedTypeMarker(
+ *   originClass = UserSubcomponent_12c9cde5::class,
+ *   scope = UserScope::class,
+ * )
+ * @Subcomponent(
+ *   modules = [
+ *     UserSubcomponent_12c9cde5.BindingModule::class,
+ *     MergedUserSubcomponent_12c9cde5.BindingModule::class
+ *   ]
+ * )
+ * public interface MergedUserSubcomponent_12c9cde5 : UserSubcomponent_12c9cde5 {
+ *   @Module
+ *   public interface BindingModule {
+ *     @Binds
+ *     public fun bindMergedUserSubcomponent_12c9cde5(
+ *       impl: MergedUserSubcomponent_12c9cde5
+ *     ): UserSubcomponent_12c9cde5
+ *   }
+ *
+ *   public interface ParentComponent : UserSubcomponent.UserScopeParentComponent {
+ *     override fun createComponent(): MergedUserSubcomponent_12c9cde5
+ *   }
+ * }
+ * ```
+ *
+ * ## No Contributed Parent Component or Factory
+ *
+ * ```kotlin
+ * @ContributesSubcomponent(UserScope::class, parentScope = AppScope::class)
+ * interface UserSubcomponent
+ * ```
+ *
+ * In this case, [contributor] will be set to a generated `ParentComponent` interface in the
+ * generated mergeable subcomponent. This in turn will generate code like so.
+ *
+ * ```kotlin
+ * // Intermediate merge class
+ * @MergeSubcomponent(scope = UserScope::class)
+ * @InternalContributedSubcomponentMarker(
+ *   originClass = UserSubcomponent::class,
+ *   contributor = UserSubcomponent_12c9cde5.ParentComponent::class,
+ * )
+ * public interface UserSubcomponent_12c9cde5 : UserSubcomponent {
+ *   @Module
+ *   public interface BindingModule {
+ *     @Binds
+ *     public fun bindUserSubcomponent_12c9cde5(impl: UserSubcomponent_12c9cde5): UserSubcomponent
+ *   }
+ *
+ *   public interface ParentComponent {
+ *     public fun createUserSubcomponent(): UserSubcomponent
+ *   }
+ * }
+ *
+ * // Final merged classes
+ * @InternalMergedTypeMarker(
+ *   originClass = UserSubcomponent_12c9cde5::class,
+ *   scope = UserScope::class,
+ * )
+ * @Subcomponent(
+ *   modules = [
+ *     UserSubcomponent_12c9cde5.BindingModule::class,
+ *     MergedUserSubcomponent_12c9cde5.BindingModule::class
+ *   ]
+ * )
+ * public interface MergedUserSubcomponent_12c9cde5 : UserSubcomponent_12c9cde5 {
+ *   @Module
+ *   public interface BindingModule {
+ *     @Binds
+ *     public fun bindMergedUserSubcomponent_12c9cde5(
+ *       impl: MergedUserSubcomponent_12c9cde5
+ *     ): UserSubcomponent_12c9cde5
+ *   }
+ *
+ *   public interface ParentComponent : UserSubcomponent_12c9cde5.ParentComponent {
+ *     public override fun createUserSubcomponent(): MergedUserSubcomponent_12c9cde5
+ *   }
+ * }
  * ```
  */
 @Target(AnnotationTarget.CLASS)
