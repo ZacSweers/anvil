@@ -36,7 +36,6 @@ import com.squareup.anvil.compiler.codegen.ksp.replaces
 import com.squareup.anvil.compiler.codegen.ksp.resolveKSClassDeclaration
 import com.squareup.anvil.compiler.codegen.ksp.returnTypeOrNull
 import com.squareup.anvil.compiler.codegen.ksp.scope
-import com.squareup.anvil.compiler.contributesSubcomponentFactoryFqName
 import com.squareup.anvil.compiler.contributesSubcomponentFqName
 import com.squareup.anvil.compiler.contributesToFqName
 import com.squareup.anvil.compiler.daggerBindingModuleSpec

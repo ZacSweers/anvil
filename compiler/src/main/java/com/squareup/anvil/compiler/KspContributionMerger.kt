@@ -816,7 +816,7 @@ internal class KspContributionMerger(
                 it.typeName == mergeModulesClassName ||
                 it.typeName == mergeInterfacesClassName
             }
-            .asIterable()
+            .asIterable(),
         )
 
         // Add our InternalMergedTypeMarker annotation for reference
