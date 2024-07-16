@@ -1413,7 +1413,7 @@ internal sealed interface Creator {
       if (!foundCreator) return null
 
       return if (isFactory) {
-        val daggerFunSpec = if (daggerAnnotation == Component.Factory::class.java) {
+        val daggerFunSpec = if (daggerAnnotation == Component.Factory::class) {
           FunSpec.builder("factory")
             .addAnnotation(JvmStatic::class)
             .returns(generatedComponentClassName.nestedClass(declaration.simpleName.asString()))
@@ -1435,7 +1435,7 @@ internal sealed interface Creator {
         )
       } else {
         // Must be a builder
-        val daggerFunSpec = if (daggerAnnotation == Component.Builder::class.java) {
+        val daggerFunSpec = if (daggerAnnotation == Component.Builder::class) {
           FunSpec.builder("builder")
             .addAnnotation(JvmStatic::class)
             .returns(generatedComponentClassName.nestedClass(declaration.simpleName.asString()))
