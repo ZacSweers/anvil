@@ -1412,17 +1412,14 @@ internal sealed interface Creator {
       }
       if (!foundCreator) return null
 
-      val isAContributedSubcomponentFactory =
-        declaration.isAnnotationPresent<InternalContributedSubcomponentMarker>()
-
       return if (isFactory) {
-        val daggerFunSpec = if (!isAContributedSubcomponentFactory) {
+        val daggerFunSpec = if (daggerAnnotation == Component::class.java) {
           FunSpec.builder("factory")
             .addAnnotation(JvmStatic::class)
             .returns(generatedComponentClassName.nestedClass(declaration.simpleName.asString()))
             .addStatement(
               "return Dagger${
-                mergeAnnotatedClass.simpleName.asString()
+                generatedComponentClassName.simpleName
                   .capitalize()
               }.factory()",
             )
@@ -1438,13 +1435,13 @@ internal sealed interface Creator {
         )
       } else {
         // Must be a builder
-        val daggerFunSpec = if (!isAContributedSubcomponentFactory) {
+        val daggerFunSpec = if (daggerAnnotation == Component::class.java) {
           FunSpec.builder("builder")
             .addAnnotation(JvmStatic::class)
             .returns(generatedComponentClassName.nestedClass(declaration.simpleName.asString()))
             .addStatement(
               "return Dagger${
-                mergeAnnotatedClass.simpleName.asString()
+                generatedComponentClassName.simpleName
                   .capitalize()
               }.builder()",
             )
