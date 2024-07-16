@@ -805,6 +805,20 @@ internal class KspContributionMerger(
       generatedComponentClassName.simpleName,
     )
       .apply {
+        // Copy over original annotations
+        addAnnotations(
+          mergeAnnotatedClass.annotations
+            .map(KSAnnotation::toAnnotationSpec)
+            .filterNot {
+              it.typeName == mergeComponentClassName ||
+                it.typeName == mergeSubcomponentClassName ||
+                it.typeName == mergeModulesClassName ||
+                it.typeName == mergeInterfacesClassName
+            }
+            .asIterable()
+        )
+
+        // Add our InternalMergedTypeMarker annotation for reference
         addAnnotation(
           AnnotationSpec.builder(InternalMergedTypeMarker::class)
             .addMember("originClass = %T::class", mergeAnnotatedClassName)
