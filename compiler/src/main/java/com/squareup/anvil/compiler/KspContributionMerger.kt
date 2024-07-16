@@ -1200,7 +1200,7 @@ private fun Creator.extend(
     .addAnnotations(
       declaration.annotations.map(KSAnnotation::toAnnotationSpec)
         .filterNot { it.typeName == contributesSubcomponentFactoryClassName }
-        .asIterable()
+        .asIterable(),
     )
     .apply {
       for (function in declaration.getDeclaredFunctions()) {
