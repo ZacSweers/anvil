@@ -925,11 +925,24 @@ internal class KspContributionMerger(
       generatedComponent.name!!,
     ) {
       addType(generatedComponent)
-      // Generate a shim of what the normal dagger entry point would be
-      creator?.daggerFunSpec?.let {
+      if (mergeAnnotatedClass.isAnnotationPresent<MergeComponent>()) {
+        // Generate a shim of what the normal dagger entry point would be
+        val creatorFunction = creator?.daggerFunSpec ?: run {
+          // If no creator is specified, then there will just be a simple static "create" function
+          FunSpec.builder("create")
+            .addAnnotation(JvmStatic::class)
+            .returns(mergeAnnotatedClassName)
+            .addStatement(
+              "return Dagger${
+                generatedComponentClassName.simpleName
+                  .capitalize()
+              }.create()",
+            )
+            .build()
+        }
         addType(
           TypeSpec.objectBuilder("Dagger${mergeAnnotatedClass.simpleName.asString().capitalize()}")
-            .addFunction(it)
+            .addFunction(creatorFunction)
             .build(),
         )
       }
