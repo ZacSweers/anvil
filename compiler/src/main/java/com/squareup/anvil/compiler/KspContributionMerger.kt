@@ -98,6 +98,9 @@ internal class KspContributionMerger(
   private val contributesSubcomponentHandler: KspContributesSubcomponentHandlerSymbolProcessor,
 ) : AnvilSymbolProcessor() {
 
+  /** @see OPTION_GENERATE_SHIMS */
+  private val generateShims = env.options[OPTION_GENERATE_SHIMS]?.toBoolean() ?: true
+
   private val contributedSubcomponentDataCache =
     mutableMapOf<FqName, ContributedSubcomponentData?>()
 
@@ -925,7 +928,7 @@ internal class KspContributionMerger(
       generatedComponent.name!!,
     ) {
       addType(generatedComponent)
-      if (mergeAnnotatedClass.isAnnotationPresent<MergeComponent>()) {
+      if (generateShims && mergeAnnotatedClass.isAnnotationPresent<MergeComponent>()) {
         // Generate a shim of what the normal dagger entry point would be
         val creatorFunction = creator?.daggerFunSpec ?: run {
           // If no creator is specified, then there will just be a simple static "create" function
