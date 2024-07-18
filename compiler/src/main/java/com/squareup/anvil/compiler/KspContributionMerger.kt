@@ -46,6 +46,7 @@ import com.squareup.anvil.compiler.codegen.ksp.isAnnotationPresent
 import com.squareup.anvil.compiler.codegen.ksp.isInterface
 import com.squareup.anvil.compiler.codegen.ksp.mergeAnnotations
 import com.squareup.anvil.compiler.codegen.ksp.modules
+import com.squareup.anvil.compiler.codegen.ksp.overridableParentComponentFunctions
 import com.squareup.anvil.compiler.codegen.ksp.parentScope
 import com.squareup.anvil.compiler.codegen.ksp.replaces
 import com.squareup.anvil.compiler.codegen.ksp.resolveKSClassDeclaration
@@ -71,6 +72,7 @@ import com.squareup.kotlinpoet.joinToCode
 import com.squareup.kotlinpoet.ksp.addOriginatingKSFile
 import com.squareup.kotlinpoet.ksp.toAnnotationSpec
 import com.squareup.kotlinpoet.ksp.toClassName
+import com.squareup.kotlinpoet.ksp.toTypeName
 import com.squareup.kotlinpoet.ksp.writeTo
 import dagger.Binds
 import dagger.Component
@@ -849,6 +851,7 @@ internal class KspContributionMerger(
         )
 
         // Generate the creator subtype if it exists
+        var mergedFactoryClassName: ClassName? = null
         creator?.let { creator ->
           val (creatorSpec, bindingSpecs) = creator.extend(
             mergeAnnotatedClass.toClassName(),
@@ -871,20 +874,8 @@ internal class KspContributionMerger(
             addType(
               generateDaggerBindingModuleForFactory(
                 parent = creator.declaration,
-                impl = generatedComponentClassName.nestedClass(creatorSpec.name!!),
-              ),
-            )
-
-            //
-            // Generate a ParentComponent for the factory type if this is a subcomponent.
-            //
-            // interface ParentComponent {
-            //   fun createComponentFactory(): ComponentFactory
-            // }
-            //
-            addType(
-              generateParentComponentForFactory(
-                factoryClassName = generatedComponentClassName.nestedClass(creatorSpec.name!!),
+                impl = generatedComponentClassName.nestedClass(creatorSpec.name!!)
+                  .also { mergedFactoryClassName = it },
               ),
             )
           }
@@ -905,10 +896,17 @@ internal class KspContributionMerger(
           if (contributor != null) {
             val parentClass = resolver.getClassDeclarationByName(contributor.canonicalName)!!
             originatingDeclarations += parentClass
+            var returnType = generatedComponentClassName
+            if (contributedSubcomponentData.componentFactory != null && mergedFactoryClassName != null) {
+              returnType = mergedFactoryClassName!!
+            }
             addType(
-              generateParentComponentForContributor(
-                parent = parentClass,
-                mergedSubcomponent = generatedComponentClassName,
+              generateParentComponent(
+                origin = mergeAnnotatedClass,
+                parentParentComponent = parentClass,
+                componentInterface = contributedSubcomponentData.originClass.fqName,
+                factoryClass = contributedSubcomponentData.componentFactory?.fqName,
+                returnType = returnType,
               ),
             )
           }
@@ -1529,34 +1527,42 @@ private fun generateDaggerBindingModuleForFactory(
 }
 
 // TODO consolidate with contributessubcomponent handling?
-private fun generateParentComponentForContributor(
-  parent: KSClassDeclaration,
-  mergedSubcomponent: ClassName,
+private fun generateParentComponent(
+  origin: KSClassDeclaration,
+  parentParentComponent: KSClassDeclaration,
+  factoryClass: FqName?,
+  componentInterface: FqName,
+  // Either the component factory or the merged component
+  returnType: ClassName,
 ): TypeSpec {
-  val functionToOverride = parent.getDeclaredFunctions().single()
-    .toFunSpec()
+  val functionToOverride = parentParentComponent.overridableParentComponentFunctions(
+    targetReturnType = componentInterface,
+    factoryClass = factoryClass,
+  )
+    .singleOrNull()
+    ?.toFunSpec()
+    ?: throw KspAnvilException(
+      message = """
+        Parent component ${parentParentComponent.qualifiedName?.asString()} does not have 
+        a single parent component function to override with
+        - Component interface: $componentInterface
+        - Factory interface: ${factoryClass?.asString() ?: "<none>"}
+        Available functions found are:
+        """.trimIndent() +
+        parentParentComponent.getAllFunctions().mapNotNull { function ->
+          function.qualifiedName?.let {
+            "${it.asString()}(): ${function.returnTypeOrNull()?.toTypeName()}"
+          }
+        }.joinToString("\n", prefix = "\n"),
+      node = origin,
+    )
   return TypeSpec
     .interfaceBuilder(PARENT_COMPONENT)
-    .addSuperinterface(parent.toClassName())
+    .addSuperinterface(parentParentComponent.toClassName())
     .addFunction(
       functionToOverride.toBuilder()
         .addModifiers(ABSTRACT, OVERRIDE)
-        .returns(mergedSubcomponent)
-        .build(),
-    )
-    .build()
-}
-
-private fun generateParentComponentForFactory(
-  factoryClassName: ClassName,
-): TypeSpec {
-  return TypeSpec
-    .interfaceBuilder(PARENT_COMPONENT)
-    .addFunction(
-      FunSpec
-        .builder("createComponentFactory")
-        .addModifiers(ABSTRACT)
-        .returns(factoryClassName)
+        .returns(returnType)
         .build(),
     )
     .build()
@@ -1569,7 +1575,7 @@ private data class ContributedSubcomponentData(
 ) {
 
   fun resolveCreatorDeclaration(resolver: Resolver): KSClassDeclaration? {
-    val creator = contributor ?: componentFactory ?: return null
+    val creator = componentFactory ?: return null
     return resolver.getClassDeclarationByName(creator.canonicalName)
   }
 
