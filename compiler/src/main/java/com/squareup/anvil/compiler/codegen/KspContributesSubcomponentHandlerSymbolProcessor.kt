@@ -1,6 +1,5 @@
 package com.squareup.anvil.compiler.codegen
 
-import com.google.devtools.ksp.getVisibility
 import com.google.devtools.ksp.isAbstract
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
@@ -9,7 +8,6 @@ import com.google.devtools.ksp.symbol.KSAnnotation
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSFunctionDeclaration
 import com.google.devtools.ksp.symbol.KSType
-import com.google.devtools.ksp.symbol.Visibility
 import com.squareup.anvil.annotations.ContributesSubcomponent
 import com.squareup.anvil.annotations.MergeSubcomponent
 import com.squareup.anvil.annotations.internal.InternalContributedSubcomponentMarker
@@ -25,6 +23,7 @@ import com.squareup.anvil.compiler.codegen.ksp.classId
 import com.squareup.anvil.compiler.codegen.ksp.declaringClass
 import com.squareup.anvil.compiler.codegen.ksp.exclude
 import com.squareup.anvil.compiler.codegen.ksp.find
+import com.squareup.anvil.compiler.codegen.ksp.overridableParentComponentFunctions
 import com.squareup.anvil.compiler.codegen.ksp.fqName
 import com.squareup.anvil.compiler.codegen.ksp.getSymbolsWithAnnotations
 import com.squareup.anvil.compiler.codegen.ksp.isAnnotationPresent
@@ -167,14 +166,13 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
                         "componentFactory = %T::class",
                         factoryClass.originalReference.toClassName(),
                       )
-                    } else {
-                      // The contributor is either the parent component interface defined in the
-                      // @ContributesSubcomponent-annotated class OR (if there isn't one there) the
-                      // one we'll generate for them in this class.
-                      val contributor = parentComponentInterface?.componentInterface
-                        ?: generatedClassName.nestedClass(PARENT_COMPONENT)
-                      addMember("contributor = %T::class", contributor)
                     }
+                    // The contributor is either the parent component interface defined in the
+                    // @ContributesSubcomponent-annotated class OR (if there isn't one there) the
+                    // one we'll generate for them in this class.
+                    val contributor = parentComponentInterface?.toClassName()
+                      ?: generatedClassName.nestedClass(PARENT_COMPONENT)
+                    addMember("contributor = %T::class", contributor)
                   }
                   .build(),
               )
@@ -314,7 +312,7 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
   private fun findParentComponentInterface(
     contribution: Contribution,
     factoryClass: KSClassDeclaration?,
-  ): ParentComponentInterfaceHolder? {
+  ): KSClassDeclaration? {
     val contributedInnerComponentInterfaces = contribution.clazz
       .declarations
       .filterIsInstance<KSClassDeclaration>()
@@ -337,15 +335,13 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
       )
     }
 
-    val functions = componentInterface.getAllFunctions()
-      .filter { it.isAbstract && it.getVisibility() == Visibility.PUBLIC }
-      .filter {
-        val returnType = it.returnTypeOrNull()?.resolveKSClassDeclaration() ?: return@filter false
-        returnType.fqName == contribution.clazz.fqName || (factoryClass != null && returnType.fqName == factoryClass.fqName)
-      }
-      .toList()
 
-    when (functions.size) {
+    val functions = componentInterface.overridableParentComponentFunctions(
+      contribution.clazz.fqName,
+      factoryClass?.fqName,
+    )
+
+    when (functions.count()) {
       0 -> return null
       1 -> {
         // This is ok
@@ -357,7 +353,7 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
       )
     }
 
-    return ParentComponentInterfaceHolder(componentInterface)
+    return componentInterface
   }
 
   private fun findFactoryClass(
@@ -540,10 +536,6 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
   ) {
     val generatedAnvilSubcomponent = contribution.clazz.classId
       .generatedAnvilSubcomponentClassId(trigger.clazz.classId)
-  }
-
-  private class ParentComponentInterfaceHolder(componentInterface: KSClassDeclaration) {
-    val componentInterface = componentInterface.toClassName()
   }
 
   private class FactoryClassHolder(val originalReference: KSClassDeclaration)
