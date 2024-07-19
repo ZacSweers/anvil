@@ -131,11 +131,13 @@ these scenarios has changed the most in the move to KSP.
 
 ## Areas to Pay Attention To
 
-The following cases are the most complex and feedback on any issues or friction around them are appreciated!
+The following cases are the most complex and feedback on any issues or friction around them are
+appreciated!
 
 - `@ContributesSubcomponent`.
 - `@MergeSubcomponent`
-- `@MergeComponent`-annotated components that expose `@MergeSubcomponent`-annotated subcomponents directly. I.e. the below case, no creators.
+- `@MergeComponent`-annotated components that expose `@MergeSubcomponent`-annotated subcomponents
+  directly. I.e. the below case, no creators.
   ```kotlin
   @MergeComponent(AppScope::class)
   interface AppComponent {
