@@ -38,6 +38,11 @@ repositories {
 
 ## Migration
 
+### 0. Prerequisites
+
+- You must be using Kotlin 1.9.24+ or 2.0.0+.
+- You must use `-Xjvm-default=all` or `-Xjvm-default=all-compatibility` if you are not already.
+
 ### 1. KSP Contributions
 
 It _should_ be possible to migrate to this fork with minimal source changes.
