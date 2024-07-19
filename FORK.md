@@ -124,6 +124,23 @@ not well-tested and encouraged to recompile all Anvil-processed code after migra
 Especially if you use `@ContributesSubcomponent` or `@MergeComponent`, as the generated code for
 these scenarios has changed the most in the move to KSP.
 
+## Areas to Pay Attention To
+
+The following cases are the most complex and feedback on any issues or friction around them are appreciated!
+
+- `@ContributesSubcomponent`.
+- `@MergeSubcomponent`
+- `@MergeComponent`-annotated components that expose `@MergeSubcomponent`-annotated subcomponents directly. I.e. the below case, no creators.
+  ```kotlin
+  @MergeComponent(AppScope::class)
+  interface AppComponent {
+    fun loggedInComponent(): LoggedInComponent
+  }
+  
+  @MergeSubcomponent(LoggedInScope::class)
+  interface LoggedInComponent
+  ```
+
 ## Future
 
 In the medium term, I plan to tune the gradle plugin to be able to consume this in existing projects
