@@ -30,14 +30,12 @@ import com.squareup.anvil.compiler.codegen.ksp.isAnnotationPresent
 import com.squareup.anvil.compiler.codegen.ksp.isDaggerScope
 import com.squareup.anvil.compiler.codegen.ksp.isInterface
 import com.squareup.anvil.compiler.codegen.ksp.modules
-import com.squareup.anvil.compiler.codegen.ksp.overridableParentComponentFunctions
 import com.squareup.anvil.compiler.codegen.ksp.parentScope
 import com.squareup.anvil.compiler.codegen.ksp.replaces
 import com.squareup.anvil.compiler.codegen.ksp.resolveKSClassDeclaration
 import com.squareup.anvil.compiler.codegen.ksp.returnTypeOrNull
 import com.squareup.anvil.compiler.codegen.ksp.scope
 import com.squareup.anvil.compiler.contributesSubcomponentFqName
-import com.squareup.anvil.compiler.contributesToFqName
 import com.squareup.anvil.compiler.daggerBindingModuleSpec
 import com.squareup.anvil.compiler.internal.asClassName
 import com.squareup.anvil.compiler.internal.createAnvilSpec

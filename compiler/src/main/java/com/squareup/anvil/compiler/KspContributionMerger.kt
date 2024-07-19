@@ -803,7 +803,13 @@ internal class KspContributionMerger(
           }
         },
       )
-      .plus(directMergeSubcomponents.map { it.mergedSubcomponentClassName.nestedClass(PARENT_COMPONENT) })
+      .plus(
+        directMergeSubcomponents.map {
+          it.mergedSubcomponentClassName.nestedClass(
+            PARENT_COMPONENT,
+          )
+        },
+      )
       // Avoids an error for repeated interfaces.
       .distinct()
       .toList()
@@ -878,7 +884,6 @@ internal class KspContributionMerger(
             // The name will be the simple parent component we generate
             defaultParentComponentFunctionName(mergedClassName)
           }
-
 
           // Manually override and implement these original declaration to point at their
           // contributed parent components instead
@@ -1686,7 +1691,7 @@ private fun generateParentComponent(
           - Component interface: $componentInterface
           - Factory interface: ${factoryClass?.asString() ?: "<none>"}
           Available functions found are:
-          """.trimIndent() +
+        """.trimIndent() +
           parentParentComponent.getAllFunctions().mapNotNull { function ->
             function.qualifiedName?.let {
               "${it.asString()}(): ${function.returnTypeOrNull()?.toTypeName()}"
