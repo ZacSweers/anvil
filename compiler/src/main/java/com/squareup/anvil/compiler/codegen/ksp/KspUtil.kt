@@ -2,7 +2,6 @@ package com.squareup.anvil.compiler.codegen.ksp
 
 import com.google.devtools.ksp.KspExperimental
 import com.google.devtools.ksp.getDeclaredFunctions
-import com.google.devtools.ksp.getVisibility
 import com.google.devtools.ksp.isAnnotationPresent
 import com.google.devtools.ksp.isConstructor
 import com.google.devtools.ksp.processing.Resolver
@@ -18,7 +17,6 @@ import com.google.devtools.ksp.symbol.KSType
 import com.google.devtools.ksp.symbol.KSTypeAlias
 import com.google.devtools.ksp.symbol.KSValueParameter
 import com.google.devtools.ksp.symbol.Modifier
-import com.google.devtools.ksp.symbol.Visibility
 import com.squareup.anvil.compiler.fqName
 import com.squareup.anvil.compiler.internal.reference.asClassId
 import com.squareup.anvil.compiler.mergeComponentFqName
@@ -287,16 +285,3 @@ internal fun KSAnnotated.mergeAnnotations(): List<KSAnnotation> {
 internal val KSAnnotation.fqName: FqName get() = (annotationType.resolve().declaration as KSClassDeclaration).fqName
 internal val KSType.fqName: FqName get() = resolveKSClassDeclaration()!!.fqName
 internal val KSClassDeclaration.fqName: FqName get() = toClassName().fqName
-
-// TODO can we cache lookups?
-internal fun KSClassDeclaration.overridableParentComponentFunctions(
-  targetReturnType: FqName,
-  factoryClass: FqName?,
-): Sequence<KSFunctionDeclaration> {
-  return getAllFunctions()
-    .filter { it.isAbstract && it.getVisibility() == Visibility.PUBLIC }
-    .filter {
-      val returnType = it.returnTypeOrNull()?.resolveKSClassDeclaration() ?: return@filter false
-      returnType.fqName == targetReturnType || (factoryClass != null && returnType.fqName == factoryClass)
-    }
-}

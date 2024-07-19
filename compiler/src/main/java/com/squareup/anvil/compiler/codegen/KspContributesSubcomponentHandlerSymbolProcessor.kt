@@ -23,7 +23,6 @@ import com.squareup.anvil.compiler.codegen.ksp.classId
 import com.squareup.anvil.compiler.codegen.ksp.declaringClass
 import com.squareup.anvil.compiler.codegen.ksp.exclude
 import com.squareup.anvil.compiler.codegen.ksp.find
-import com.squareup.anvil.compiler.codegen.ksp.findParentComponentInterface
 import com.squareup.anvil.compiler.codegen.ksp.fqName
 import com.squareup.anvil.compiler.codegen.ksp.getSymbolsWithAnnotations
 import com.squareup.anvil.compiler.codegen.ksp.isAnnotationPresent
@@ -155,7 +154,7 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
             )
             .apply {
               val parentComponentInterface =
-                findParentComponentInterface(
+                classScanner.findParentComponentInterface(
                   contribution.clazz,
                   factoryClass?.originalReference,
                   contribution.parentScopeType,

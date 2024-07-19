@@ -41,7 +41,6 @@ import com.squareup.anvil.compiler.codegen.ksp.declaringClass
 import com.squareup.anvil.compiler.codegen.ksp.exclude
 import com.squareup.anvil.compiler.codegen.ksp.find
 import com.squareup.anvil.compiler.codegen.ksp.findAll
-import com.squareup.anvil.compiler.codegen.ksp.findParentComponentInterface
 import com.squareup.anvil.compiler.codegen.ksp.fqName
 import com.squareup.anvil.compiler.codegen.ksp.getKSAnnotationsByType
 import com.squareup.anvil.compiler.codegen.ksp.getSymbolsWithAnnotations
@@ -50,7 +49,6 @@ import com.squareup.anvil.compiler.codegen.ksp.isAnnotationPresent
 import com.squareup.anvil.compiler.codegen.ksp.isInterface
 import com.squareup.anvil.compiler.codegen.ksp.mergeAnnotations
 import com.squareup.anvil.compiler.codegen.ksp.modules
-import com.squareup.anvil.compiler.codegen.ksp.overridableParentComponentFunctions
 import com.squareup.anvil.compiler.codegen.ksp.parentScope
 import com.squareup.anvil.compiler.codegen.ksp.replaces
 import com.squareup.anvil.compiler.codegen.ksp.resolveKSClassDeclaration
@@ -872,8 +870,10 @@ internal class KspContributionMerger(
             // subcomponent data
             val originalDeclaration = resolver.getClassDeclarationByName(originClassName.canonicalName)
             if (originalDeclaration != null) {
-              findParentComponentInterface(originalDeclaration, null, null)
-                ?.overridableParentComponentFunctions(returnType.fqName, null)
+              classScanner.findParentComponentInterface(originalDeclaration, null, null)
+                ?.let {
+                  classScanner.overridableParentComponentFunctions(it, returnType.fqName, null)
+                }
                 ?.singleOrNull()
                 ?.simpleName
                 ?.asString()
@@ -979,6 +979,7 @@ internal class KspContributionMerger(
             generatedParentComponent = true
             addType(
               generateParentComponent(
+                classScanner = classScanner,
                 origin = mergeAnnotatedClass,
                 parentParentComponent = parentClass,
                 componentInterface = contributedSubcomponentData.originClass.fqName,
@@ -992,6 +993,7 @@ internal class KspContributionMerger(
         if (!generatedParentComponent && mergeAnnotatedClass.isAnnotationPresent<MergeSubcomponent>()) {
           addType(
             generateParentComponent(
+              classScanner = classScanner,
               origin = mergeAnnotatedClass,
               parentParentComponent = null,
               componentInterface = mergeAnnotatedClass.fqName,
@@ -1670,6 +1672,7 @@ private fun defaultParentComponentFunctionName(returnType: ClassName): String =
 
 // TODO consolidate with contributessubcomponent handling?
 private fun generateParentComponent(
+  classScanner: ClassScannerKsp,
   origin: KSClassDeclaration,
   parentParentComponent: KSClassDeclaration?,
   factoryClass: FqName?,
@@ -1678,7 +1681,8 @@ private fun generateParentComponent(
   returnType: ClassName,
 ): TypeSpec {
   val funSpec = if (parentParentComponent != null) {
-    val functionToOverride = parentParentComponent.overridableParentComponentFunctions(
+    val functionToOverride = classScanner.overridableParentComponentFunctions(
+      parentParentComponent,
       targetReturnType = componentInterface,
       factoryClass = factoryClass,
     )
