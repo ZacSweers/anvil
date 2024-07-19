@@ -13,6 +13,7 @@ import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSFunction
 import com.google.devtools.ksp.symbol.KSFunctionDeclaration
 import com.google.devtools.ksp.symbol.KSModifierListOwner
+import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 import com.google.devtools.ksp.symbol.KSType
 import com.google.devtools.ksp.symbol.KSTypeAlias
 import com.google.devtools.ksp.symbol.KSValueParameter
@@ -26,6 +27,7 @@ import com.squareup.anvil.compiler.mergeModulesFqName
 import com.squareup.anvil.compiler.mergeSubcomponentFqName
 import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.ParameterSpec
+import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.TypeName
 import com.squareup.kotlinpoet.jvm.jvmSuppressWildcards
 import com.squareup.kotlinpoet.ksp.toAnnotationSpec
@@ -260,6 +262,13 @@ internal fun KSFunctionDeclaration.toFunSpec(): FunSpec {
   return builder.build()
 }
 
+internal fun KSPropertyDeclaration.toPropertySpec(): PropertySpec {
+  return PropertySpec.builder(simpleName.getShortName(), type.resolve().toTypeName())
+    .addModifiers(modifiers.mapNotNull { it.toKModifier() })
+    .addAnnotations(annotations.map { it.toAnnotationSpec() }.asIterable())
+    .build()
+}
+
 internal fun KSValueParameter.toParameterSpec(): ParameterSpec {
   return ParameterSpec.builder(name!!.asString(), type.resolve().toTypeName())
     .addAnnotations(annotations.map { it.toAnnotationSpec() }.asIterable())
@@ -279,6 +288,7 @@ internal val KSAnnotation.fqName: FqName get() = (annotationType.resolve().decla
 internal val KSType.fqName: FqName get() = resolveKSClassDeclaration()!!.fqName
 internal val KSClassDeclaration.fqName: FqName get() = toClassName().fqName
 
+// TODO can we cache lookups?
 internal fun KSClassDeclaration.overridableParentComponentFunctions(
   targetReturnType: FqName,
   factoryClass: FqName?,
