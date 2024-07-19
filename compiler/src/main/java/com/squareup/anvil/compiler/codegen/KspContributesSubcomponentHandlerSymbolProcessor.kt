@@ -23,6 +23,7 @@ import com.squareup.anvil.compiler.codegen.ksp.classId
 import com.squareup.anvil.compiler.codegen.ksp.declaringClass
 import com.squareup.anvil.compiler.codegen.ksp.exclude
 import com.squareup.anvil.compiler.codegen.ksp.find
+import com.squareup.anvil.compiler.codegen.ksp.findParentComponentInterface
 import com.squareup.anvil.compiler.codegen.ksp.fqName
 import com.squareup.anvil.compiler.codegen.ksp.getSymbolsWithAnnotations
 import com.squareup.anvil.compiler.codegen.ksp.isAnnotationPresent
@@ -156,7 +157,11 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
             )
             .apply {
               val parentComponentInterface =
-                findParentComponentInterface(contribution, factoryClass?.originalReference)
+                findParentComponentInterface(
+                  contribution.clazz,
+                  factoryClass?.originalReference,
+                  contribution.parentScopeType,
+                )
               addAnnotation(
                 AnnotationSpec.builder(InternalContributedSubcomponentMarker::class)
                   .addMember("originClass = %T::class", contributionClassName)
@@ -307,52 +312,6 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
           .build(),
       )
       .build()
-  }
-
-  private fun findParentComponentInterface(
-    contribution: Contribution,
-    factoryClass: KSClassDeclaration?,
-  ): KSClassDeclaration? {
-    val contributedInnerComponentInterfaces = contribution.clazz
-      .declarations
-      .filterIsInstance<KSClassDeclaration>()
-      .filter(KSClassDeclaration::isInterface)
-      .filter { nestedClass ->
-        nestedClass.annotations
-          .any {
-            it.fqName == contributesToFqName && it.scope() == contribution.parentScopeType
-          }
-      }
-      .toList()
-
-    val componentInterface = when (contributedInnerComponentInterfaces.size) {
-      0 -> return null
-      1 -> contributedInnerComponentInterfaces[0]
-      else -> throw KspAnvilException(
-        node = contribution.clazz,
-        message = "Expected zero or one parent component interface within " +
-          "${contribution.clazz.fqName} being contributed to the parent scope.",
-      )
-    }
-
-    val functions = componentInterface.overridableParentComponentFunctions(
-      contribution.clazz.fqName,
-      factoryClass?.fqName,
-    )
-
-    when (functions.count()) {
-      0 -> return null
-      1 -> {
-        // This is ok
-      }
-      else -> throw KspAnvilException(
-        node = contribution.clazz,
-        message = "Expected zero or one function returning the " +
-          "subcomponent ${contribution.clazz.fqName}.",
-      )
-    }
-
-    return componentInterface
   }
 
   private fun findFactoryClass(
