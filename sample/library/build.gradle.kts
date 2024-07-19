@@ -10,8 +10,8 @@ if (libs.versions.config.generateDaggerFactoriesWithAnvil.get().toBoolean()) {
     generateDaggerFactories = true
     disableComponentMerging = true
     useKsp(
-        contributesAndFactoryGeneration = true,
-        componentMerging = false,
+      contributesAndFactoryGeneration = true,
+      componentMerging = false,
     )
   }
 } else {

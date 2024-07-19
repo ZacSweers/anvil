@@ -1548,7 +1548,7 @@ private fun generateParentComponent(
         - Component interface: $componentInterface
         - Factory interface: ${factoryClass?.asString() ?: "<none>"}
         Available functions found are:
-        """.trimIndent() +
+      """.trimIndent() +
         parentParentComponent.getAllFunctions().mapNotNull { function ->
           function.qualifiedName?.let {
             "${it.asString()}(): ${function.returnTypeOrNull()?.toTypeName()}"

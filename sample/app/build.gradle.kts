@@ -9,10 +9,10 @@ plugins {
 }
 
 anvil {
-    useKsp(
-        contributesAndFactoryGeneration = true,
-        componentMerging = true,
-    )
+  useKsp(
+    contributesAndFactoryGeneration = true,
+    componentMerging = true,
+  )
 }
 
 android {

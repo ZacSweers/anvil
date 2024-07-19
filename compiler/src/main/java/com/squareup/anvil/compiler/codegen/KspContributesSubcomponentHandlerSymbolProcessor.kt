@@ -23,13 +23,13 @@ import com.squareup.anvil.compiler.codegen.ksp.classId
 import com.squareup.anvil.compiler.codegen.ksp.declaringClass
 import com.squareup.anvil.compiler.codegen.ksp.exclude
 import com.squareup.anvil.compiler.codegen.ksp.find
-import com.squareup.anvil.compiler.codegen.ksp.overridableParentComponentFunctions
 import com.squareup.anvil.compiler.codegen.ksp.fqName
 import com.squareup.anvil.compiler.codegen.ksp.getSymbolsWithAnnotations
 import com.squareup.anvil.compiler.codegen.ksp.isAnnotationPresent
 import com.squareup.anvil.compiler.codegen.ksp.isDaggerScope
 import com.squareup.anvil.compiler.codegen.ksp.isInterface
 import com.squareup.anvil.compiler.codegen.ksp.modules
+import com.squareup.anvil.compiler.codegen.ksp.overridableParentComponentFunctions
 import com.squareup.anvil.compiler.codegen.ksp.parentScope
 import com.squareup.anvil.compiler.codegen.ksp.replaces
 import com.squareup.anvil.compiler.codegen.ksp.resolveKSClassDeclaration
@@ -334,7 +334,6 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
           "${contribution.clazz.fqName} being contributed to the parent scope.",
       )
     }
-
 
     val functions = componentInterface.overridableParentComponentFunctions(
       contribution.clazz.fqName,
