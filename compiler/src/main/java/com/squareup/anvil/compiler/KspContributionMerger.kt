@@ -347,13 +347,13 @@ internal class KspContributionMerger(
         }
       }
       .let {
-          // Every generated merged component will have a binding module to map it back to the
-          // root type
-          if (!isModule) {
-            it.plus(generatedComponentClassName.nestedClass(BINDING_MODULE_SUFFIX))
-          } else {
-            it
-          }
+        // Every generated merged component will have a binding module to map it back to the
+        // root type
+        if (!isModule) {
+          it.plus(generatedComponentClassName.nestedClass(BINDING_MODULE_SUFFIX))
+        } else {
+          it
+        }
       }
 
     val allContributesAnnotations: List<KSAnnotation> = annotations
