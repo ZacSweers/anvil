@@ -51,6 +51,7 @@ import com.squareup.anvil.compiler.codegen.ksp.mergeAnnotations
 import com.squareup.anvil.compiler.codegen.ksp.modules
 import com.squareup.anvil.compiler.codegen.ksp.parentScope
 import com.squareup.anvil.compiler.codegen.ksp.replaces
+import com.squareup.anvil.compiler.codegen.ksp.resolvableAnnotations
 import com.squareup.anvil.compiler.codegen.ksp.resolveKSClassDeclaration
 import com.squareup.anvil.compiler.codegen.ksp.returnTypeOrNull
 import com.squareup.anvil.compiler.codegen.ksp.scope
@@ -845,13 +846,9 @@ internal class KspContributionMerger(
           addModifiers(visibility)
         }
         // Copy over original annotations
+        // TODO should we maybe just only copy over scope or qualifier annotations?
         addAnnotations(
-          mergeAnnotatedClass.annotations
-            .filterNot {
-              // Filter out any error types as we don't have a way to handle these
-              // TODO should we maybe just only copy over scope or qualifier annotations?
-              it.annotationType.resolve().isError
-            }
+          mergeAnnotatedClass.resolvableAnnotations
             .map(KSAnnotation::toAnnotationSpec)
             .filterNot {
               it.typeName == mergeComponentClassName ||
@@ -1400,7 +1397,8 @@ private fun Creator.extend(
    */
   val creatorSpec = builder
     .addAnnotations(
-      declaration.annotations.map(KSAnnotation::toAnnotationSpec)
+      declaration.resolvableAnnotations
+        .map(KSAnnotation::toAnnotationSpec)
         .filterNot {
           // Don't copy over our custom creator annotations
           it.typeName == contributesSubcomponentFactoryClassName ||
@@ -1587,7 +1585,7 @@ internal sealed interface Creator {
       var isFactory = false
       lateinit var mergeAnnotation: KClass<*>
       lateinit var daggerAnnotation: KClass<*>
-      for (annotation in declaration.annotations) {
+      for (annotation in declaration.resolvableAnnotations) {
         when (annotation.fqName) {
           mergeComponentFactoryFqName -> {
             mergeAnnotation = MergeComponent.Factory::class

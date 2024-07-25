@@ -56,6 +56,7 @@ internal fun <T : Annotation> KSAnnotated.getKSAnnotationsByType(
 internal fun KSAnnotated.getKSAnnotationsByQualifiedName(
   qualifiedName: String,
 ): Sequence<KSAnnotation> {
+  // Don't use resolvableAnnotations here to save the double resolve() call
   return annotations.filter {
     // Don't check the simple name as it could be a typealias
     val type = it.annotationType.resolve()
@@ -166,7 +167,7 @@ private fun requireSingleInjectConstructor(
   val constructorsErrorMessage = constructors.joinToString { constructor ->
     val formattedAnnotations =
       constructor
-        .annotations
+        .resolvableAnnotations
         .joinToString(" ", postfix = " ") { annotation ->
           val annotationFq = annotation.annotationType.resolve().declaration.qualifiedName
           "@${annotationFq!!.asString()}"
@@ -270,7 +271,10 @@ internal val KSClassDeclaration.classId: ClassId get() = toClassName().asClassId
 internal fun KSFunctionDeclaration.toFunSpec(): FunSpec {
   val builder = FunSpec.builder(simpleName.getShortName())
     .addModifiers(modifiers.mapNotNull { it.toKModifier() })
-    .addAnnotations(annotations.map { it.toAnnotationSpec() }.asIterable())
+    .addAnnotations(
+      resolvableAnnotations
+        .map { it.toAnnotationSpec() }.asIterable(),
+    )
 
   returnType?.resolve()?.toTypeName()?.let { builder.returns(it) }
 
@@ -284,13 +288,17 @@ internal fun KSFunctionDeclaration.toFunSpec(): FunSpec {
 internal fun KSPropertyDeclaration.toPropertySpec(): PropertySpec {
   return PropertySpec.builder(simpleName.getShortName(), type.resolve().toTypeName())
     .addModifiers(modifiers.mapNotNull { it.toKModifier() })
-    .addAnnotations(annotations.map { it.toAnnotationSpec() }.asIterable())
+    .addAnnotations(
+      resolvableAnnotations.map { it.toAnnotationSpec() }.asIterable(),
+    )
     .build()
 }
 
 internal fun KSValueParameter.toParameterSpec(): ParameterSpec {
   return ParameterSpec.builder(name!!.asString(), type.resolve().toTypeName())
-    .addAnnotations(annotations.map { it.toAnnotationSpec() }.asIterable())
+    .addAnnotations(
+      resolvableAnnotations.map { it.toAnnotationSpec() }.asIterable(),
+    )
     .build()
 }
 
@@ -303,7 +311,18 @@ internal fun KSAnnotated.mergeAnnotations(): List<KSAnnotation> {
   )
 }
 
+/**
+ * Returns a sequence of [KSAnnotation] types that are not error types.
+ */
+internal val KSAnnotated.resolvableAnnotations: Sequence<KSAnnotation> get() = annotations
+  .filterNot { it.annotationType.resolve().isError }
+
 internal val KSAnnotation.fqName: FqName get() =
   annotationType.resolve().resolveKSClassDeclaration()!!.fqName
 internal val KSType.fqName: FqName get() = resolveKSClassDeclaration()!!.fqName
-internal val KSClassDeclaration.fqName: FqName get() = toClassName().fqName
+internal val KSClassDeclaration.fqName: FqName get() {
+  // Call resolveKSClassDeclaration to ensure we follow typealiases
+  return resolveKSClassDeclaration()!!
+    .toClassName()
+    .fqName
+}
