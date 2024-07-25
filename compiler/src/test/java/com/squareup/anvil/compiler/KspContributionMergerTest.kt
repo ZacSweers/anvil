@@ -61,15 +61,19 @@ class KspContributionMergerTest {
       package com.squareup.test
       
       import com.squareup.anvil.annotations.MergeComponent
+      import dagger.BindsInstance
 
       typealias CustomMergeComponent = MergeComponent
       typealias CustomMergeComponentFactory = MergeComponent.Factory
+      typealias CustomBindsInstance = BindsInstance
       
       @CustomMergeComponent(Any::class)
       interface ComponentInterface {
+        fun value(): Int
+        
         @CustomMergeComponentFactory
         interface Factory {
-          fun create(): ComponentInterface
+          fun create(@CustomBindsInstance value: Int): ComponentInterface
         }
       }
       """,
@@ -98,7 +102,13 @@ class KspContributionMergerTest {
 
       @DoesNotExist
       @MergeComponent(Any::class)
-      interface ComponentInterface
+      interface ComponentInterface {
+        @DoesNotExist
+        @MergeComponent.Factory
+        interface Factory {
+          fun create(): ComponentInterface
+        }
+      }
       """,
       componentProcessingMode = ComponentProcessingMode.NONE,
       componentMergingBackend = ComponentMergingBackend.KSP,
