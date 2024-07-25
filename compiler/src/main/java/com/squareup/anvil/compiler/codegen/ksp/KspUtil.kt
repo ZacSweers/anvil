@@ -9,12 +9,14 @@ import com.google.devtools.ksp.symbol.ClassKind.ANNOTATION_CLASS
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSAnnotation
 import com.google.devtools.ksp.symbol.KSClassDeclaration
+import com.google.devtools.ksp.symbol.KSDeclaration
 import com.google.devtools.ksp.symbol.KSFunction
 import com.google.devtools.ksp.symbol.KSFunctionDeclaration
 import com.google.devtools.ksp.symbol.KSModifierListOwner
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 import com.google.devtools.ksp.symbol.KSType
 import com.google.devtools.ksp.symbol.KSTypeAlias
+import com.google.devtools.ksp.symbol.KSTypeParameter
 import com.google.devtools.ksp.symbol.KSValueParameter
 import com.google.devtools.ksp.symbol.Modifier
 import com.squareup.anvil.compiler.fqName
@@ -44,11 +46,8 @@ import kotlin.reflect.KClass
 internal fun <T : Annotation> KSAnnotated.getKSAnnotationsByType(
   annotationKClass: KClass<T>,
 ): Sequence<KSAnnotation> {
-  return annotations.filter {
-    it.shortName.getShortName() == annotationKClass.simpleName &&
-      it.annotationType.resolve()
-        .declaration.qualifiedName?.asString() == annotationKClass.qualifiedName
-  }
+  val qualifiedName = annotationKClass.qualifiedName ?: return emptySequence()
+  return getKSAnnotationsByQualifiedName(qualifiedName)
 }
 
 /**
@@ -57,11 +56,15 @@ internal fun <T : Annotation> KSAnnotated.getKSAnnotationsByType(
 internal fun KSAnnotated.getKSAnnotationsByQualifiedName(
   qualifiedName: String,
 ): Sequence<KSAnnotation> {
-  val simpleName = qualifiedName.substringAfterLast(".")
   return annotations.filter {
-    it.shortName.getShortName() == simpleName &&
-      it.annotationType.resolve()
-        .declaration.qualifiedName?.asString() == qualifiedName
+    // Don't check the simple name as it could be a typealias
+    val type = it.annotationType.resolve()
+
+    // Ignore error types
+    if (type.isError) return@filter false
+
+    // Resolve the KSClassDeclaration to ensure we peek through typealiases
+    type.resolveKSClassDeclaration()?.qualifiedName?.asString() == qualifiedName
   }
 }
 
@@ -107,12 +110,30 @@ internal fun TypeName.withJvmSuppressWildcardsIfNeeded(
 /**
  * Resolves the [KSClassDeclaration] for this type, including following typealiases as needed.
  */
-internal tailrec fun KSType.resolveKSClassDeclaration(): KSClassDeclaration? {
-  return when (val declaration = declaration) {
+internal fun KSType.resolveKSClassDeclaration(): KSClassDeclaration? =
+  declaration.resolveKSClassDeclaration()
+
+/**
+ * Resolves the [KSClassDeclaration] representation of this declaration, including following
+ * typealiases as needed.
+ *
+ * [KSTypeParameter] types will return null. If you expect one here, you should check the
+ * declaration directly.
+ */
+internal fun KSDeclaration.resolveKSClassDeclaration(): KSClassDeclaration? {
+  return when (val declaration = unwrapTypealiases()) {
     is KSClassDeclaration -> declaration
-    is KSTypeAlias -> declaration.type.resolve().resolveKSClassDeclaration()
-    else -> error("Unrecognized declaration type: $declaration")
+    is KSTypeParameter -> null
+    else -> error("Unexpected declaration type: $this")
   }
+}
+
+/**
+ * Returns the resolved declaration following any typealiases.
+ */
+internal tailrec fun KSDeclaration.unwrapTypealiases(): KSDeclaration = when (this) {
+  is KSTypeAlias -> type.resolve().declaration.unwrapTypealiases()
+  else -> this
 }
 
 /**
@@ -282,6 +303,7 @@ internal fun KSAnnotated.mergeAnnotations(): List<KSAnnotation> {
   )
 }
 
-internal val KSAnnotation.fqName: FqName get() = (annotationType.resolve().declaration as KSClassDeclaration).fqName
+internal val KSAnnotation.fqName: FqName get() =
+  annotationType.resolve().resolveKSClassDeclaration()!!.fqName
 internal val KSType.fqName: FqName get() = resolveKSClassDeclaration()!!.fqName
 internal val KSClassDeclaration.fqName: FqName get() = toClassName().fqName

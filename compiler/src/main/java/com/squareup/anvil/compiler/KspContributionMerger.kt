@@ -608,11 +608,11 @@ internal class KspContributionMerger(
           )
         }
 
-        if (annotations[0].annotationType.resolve().toClassName() == mergeComponentClassName) {
+        if (annotations[0].annotationType.resolve().resolveKSClassDeclaration()?.toClassName() == mergeComponentClassName) {
           copyArrayValue("dependencies")
         }
 
-        if (annotations[0].annotationType.resolve().toClassName() == mergeModulesClassName) {
+        if (annotations[0].annotationType.resolve().resolveKSClassDeclaration()?.toClassName() == mergeModulesClassName) {
           copyArrayValue("subcomponents")
         }
       }
@@ -842,6 +842,11 @@ internal class KspContributionMerger(
         // Copy over original annotations
         addAnnotations(
           mergeAnnotatedClass.annotations
+            .filterNot {
+              // Filter out any error types as we don't have a way to handle these
+              // TODO should we maybe just only copy over scope or qualifier annotations?
+              it.annotationType.resolve().isError
+            }
             .map(KSAnnotation::toAnnotationSpec)
             .filterNot {
               it.typeName == mergeComponentClassName ||
@@ -1323,7 +1328,7 @@ private fun KSAnnotation.originClass(): KSClassDeclaration? {
 }
 
 private val KSAnnotation.daggerAnnotationClassName: ClassName
-  get() = when (annotationType.resolve().toClassName()) {
+  get() = when (annotationType.resolve().resolveKSClassDeclaration()?.toClassName()) {
     mergeComponentClassName -> daggerComponentClassName
     mergeSubcomponentClassName -> daggerSubcomponentClassName
     mergeModulesClassName -> daggerModuleClassName
