@@ -31,6 +31,7 @@ class KspContributionMergerTest {
   }
 
   @Test fun `merged component visibility is inherited from annotated class`() {
+    assumeTrue(includeKspTests())
     compile(
       """
       package com.squareup.test
