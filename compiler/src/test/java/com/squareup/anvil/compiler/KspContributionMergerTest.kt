@@ -53,9 +53,13 @@ class KspContributionMergerTest {
       componentProcessingMode = ComponentProcessingMode.KSP,
       expectExitCode = KotlinCompilation.ExitCode.OK,
     ) {
-      assertThat(componentInterface.canonicalName).isEqualTo("com.squareup.test.MergedComponentInterface")
+      assertThat(
+        componentInterface.canonicalName,
+      ).isEqualTo("com.squareup.test.MergedComponentInterface")
       // Ensure we saw and generated the factory creator too
-      assertThat(classLoader.loadClass("${componentInterface.canonicalName}\$Factory").canonicalName)
+      assertThat(
+        classLoader.loadClass("${componentInterface.canonicalName}\$Factory").canonicalName,
+      )
         .isEqualTo("com.squareup.test.MergedComponentInterface.Factory")
     }
   }
