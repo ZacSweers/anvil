@@ -6,10 +6,12 @@ import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.processing.SymbolProcessorProvider
 import com.squareup.anvil.compiler.api.ComponentMergingBackend
+import com.squareup.anvil.compiler.api.KspContributingAnnotationsSignal
 import com.squareup.anvil.compiler.codegen.KspContributesSubcomponentHandlerSymbolProcessor
 import com.squareup.anvil.compiler.codegen.ksp.AnvilSymbolProcessor
 import com.squareup.anvil.compiler.codegen.ksp.AnvilSymbolProcessorProvider
 import com.squareup.anvil.compiler.codegen.toAnvilContext
+import java.util.ServiceLoader
 
 /**
  * An abstraction layer between [KspContributesSubcomponentHandlerSymbolProcessor] and [KspContributionMerger]
@@ -34,11 +36,18 @@ internal class ClassScanningKspProcessor(
       val classScanner = ClassScannerKsp()
       val contributesSubcomponentHandler =
         KspContributesSubcomponentHandlerSymbolProcessor(env, classScanner)
-      val componentMergingEnabled = !context.disableComponentMerging && !context.generateFactories && context.componentMergingBackend == ComponentMergingBackend.KSP
+      val componentMergingEnabled =
+        !context.disableComponentMerging && !context.generateFactories && context.componentMergingBackend == ComponentMergingBackend.KSP
       val delegate = if (componentMergingEnabled) {
         // We're running component merging, so we need to run both and let KspContributionMerger
         // handle running the contributesSubcomponentHandler when needed.
-        KspContributionMerger(env, classScanner, contributesSubcomponentHandler)
+        val otherContributingAnnotations = contributingAnnotations(env)
+        KspContributionMerger(
+          env,
+          classScanner,
+          contributesSubcomponentHandler,
+          otherContributingAnnotations,
+        )
       } else {
         // We're only generating factories/contributessubcomponents, so only run it.
         contributesSubcomponentHandler
@@ -55,5 +64,20 @@ internal class ClassScanningKspProcessor(
 
   override fun onError() {
     delegate.onError()
+  }
+
+  companion object {
+    private fun contributingAnnotations(env: SymbolProcessorEnvironment): Set<String> {
+      return try {
+        ServiceLoader.load(
+          KspContributingAnnotationsSignal::class.java,
+          KspContributingAnnotationsSignal::class.java.classLoader,
+        )
+          .flatMapTo(mutableSetOf(), KspContributingAnnotationsSignal::supportedAnnotationTypes)
+      } catch (e: Exception) {
+        env.logger.exception(e)
+        emptySet()
+      }
+    }
   }
 }

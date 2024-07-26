@@ -135,6 +135,24 @@ not well-tested and encouraged to recompile all Anvil-processed code after migra
 Especially if you use `@ContributesSubcomponent` or `@MergeComponent`, as the generated code for
 these scenarios has changed the most in the move to KSP.
 
+### Custom Code Generators
+
+If you previously implemented any custom `CodeGenerator`s from Anvil, you will need to update these 
+too.
+
+1. First, they must be converted to KSP if you haven't already.
+2. If they generate code that is annotated with Anvil annotations (e.g. `@ContributesTo`), you will
+   need to implement a `KspContributingAnnotationsSignal` to indicate which annotations trigger 
+   these. This is important to ensure they are processed before KSP contribution merging runs. See 
+   the kdoc on `KspContributingAnnotationsSignal` for more details.
+
+```kotlin
+@AutoService(KspContributingAnnotationsSignal::class)
+class CustomKspContributingAnnotationsSignal : KspContributingAnnotationsSignal {
+  override val supportedAnnotationTypes = setOf("com.example.CustomAnnotation")
+}
+```
+
 ## Areas to Pay Attention To
 
 The following cases are the most complex and feedback on any issues or friction around them are

@@ -103,6 +103,8 @@ internal class KspContributionMerger(
   override val env: SymbolProcessorEnvironment,
   private val classScanner: ClassScannerKsp,
   private val contributesSubcomponentHandler: KspContributesSubcomponentHandlerSymbolProcessor,
+  /** Other contributing annotations. */
+  otherContributingAnnotations: Set<String>,
 ) : AnvilSymbolProcessor() {
 
   /** @see OPTION_GENERATE_SHIMS */
@@ -111,17 +113,22 @@ internal class KspContributionMerger(
   private val contributedSubcomponentDataCache =
     mutableMapOf<FqName, ContributedSubcomponentData?>()
 
+  private val allContributingAnnotations = buildSet {
+    add(contributesBindingFqName.asString())
+    add(contributesMultibindingFqName.asString())
+    add(contributesToFqName.asString())
+    addAll(otherContributingAnnotations)
+    // contributesSubcomponentFqName is handled uniquely
+  }
+
   override fun processChecked(
     resolver: Resolver,
   ): List<KSAnnotated> {
-    // If there's any remaining `@Contributes*`-annotated classes, defer to a later round
-    val contributingAnnotations = resolver.getSymbolsWithAnnotations(
-      contributesBindingFqName,
-      contributesMultibindingFqName,
-      contributesSubcomponentFqName,
-    ).toList()
+    // If there's any remaining `@Contributes*` or custom contributing annotated symbols, defer to
+    // a later round
+    val contributingAnnotations = resolver.getSymbolsWithAnnotations(allContributingAnnotations)
 
-    var shouldDefer = contributingAnnotations.isNotEmpty()
+    var shouldDefer = contributingAnnotations.any()
 
     if (!shouldDefer) {
       // If any @InternalContributedSubcomponentMarker-annotated classes are generated with

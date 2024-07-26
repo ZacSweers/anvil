@@ -111,3 +111,7 @@ public final class com/squareup/anvil/compiler/api/GeneratedFileWithSources : co
 	public fun toString ()Ljava/lang/String;
 }
 
+public abstract interface class com/squareup/anvil/compiler/api/KspContributingAnnotationsSignal {
+	public abstract fun getSupportedAnnotationTypes ()Ljava/util/Set;
+}
+
