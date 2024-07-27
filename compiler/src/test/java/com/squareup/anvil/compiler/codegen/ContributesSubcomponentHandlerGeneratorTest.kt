@@ -7,6 +7,7 @@ import com.squareup.anvil.compiler.PARENT_COMPONENT
 import com.squareup.anvil.compiler.SUBCOMPONENT_FACTORY
 import com.squareup.anvil.compiler.SUBCOMPONENT_MODULE
 import com.squareup.anvil.compiler.checkFullTestRun
+import com.squareup.anvil.compiler.codegen.ksp.simpleSymbolProcessor
 import com.squareup.anvil.compiler.compile
 import com.squareup.anvil.compiler.componentInterface
 import com.squareup.anvil.compiler.contributingInterface
@@ -1867,26 +1868,40 @@ class ContributesSubcomponentHandlerGeneratorTest(
 
   @Test fun `an @ContributeSubcomponent class can be generated`() {
     assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
-    // TODO support KSP in this too
-    assumeTrue(mode is AnvilCompilationMode.Embedded)
-    val codeGenerator = simpleCodeGenerator { clazz ->
-      clazz
-        .takeIf { it.isAnnotatedWith(mergeComponentFqName) }
-        ?.let {
-          //language=kotlin
-          """
-            package com.squareup.test
-                
-            import com.squareup.anvil.annotations.ContributesSubcomponent
-            import com.squareup.test.SubcomponentInterface1
-      
-            @ContributesSubcomponent(
-              scope = Any::class, 
-              parentScope = Unit::class,
-            )
-            interface SubcomponentInterface2
-          """.trimIndent()
-        }
+    val generatedCode =
+      //language=kotlin
+      """
+        package com.squareup.test
+            
+        import com.squareup.anvil.annotations.ContributesSubcomponent
+        import com.squareup.test.SubcomponentInterface1
+  
+        @ContributesSubcomponent(
+          scope = Any::class, 
+          parentScope = Unit::class,
+        )
+        interface SubcomponentInterface2
+      """.trimIndent()
+
+    val localMode = if (mode is AnvilCompilationMode.Ksp) {
+      val provider = simpleSymbolProcessor { resolver ->
+        resolver.getSymbolsWithAnnotation(mergeComponentFqName.asString())
+          .firstOrNull()
+          ?.let {
+            listOf(generatedCode)
+          }
+          .orEmpty()
+      }
+      AnvilCompilationMode.Ksp(listOf(provider))
+    } else {
+      val codeGenerator = simpleCodeGenerator { clazz ->
+        clazz
+          .takeIf { it.isAnnotatedWith(mergeComponentFqName) }
+          ?.let {
+            generatedCode
+          }
+      }
+      AnvilCompilationMode.Embedded(listOf(codeGenerator))
     }
 
     compile(
@@ -1905,7 +1920,7 @@ class ContributesSubcomponentHandlerGeneratorTest(
         @MergeComponent(Unit::class)
         interface ComponentInterface
       """,
-      mode = AnvilCompilationMode.Embedded(listOf(codeGenerator)),
+      mode = localMode,
     ) {
       val parentComponentInterface1 = subcomponentInterface1
         .anvilComponent(componentInterface)
@@ -1921,37 +1936,52 @@ class ContributesSubcomponentHandlerGeneratorTest(
 
   @Test fun `an @ContributeSubcomponent class can be generated with a custom factory`() {
     assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
-    // TODO support KSP in this too
-    assumeTrue(mode is AnvilCompilationMode.Embedded)
-    val codeGenerator = simpleCodeGenerator { clazz ->
-      clazz
-        .takeIf { it.isAnnotatedWith(mergeComponentFqName) }
-        ?.let {
-          //language=kotlin
-          """
-            package com.squareup.test
-                  
-            import com.squareup.anvil.annotations.ContributesSubcomponent
-            import com.squareup.anvil.annotations.ContributesTo
-            import com.squareup.test.SubcomponentInterface1
-        
-            @ContributesSubcomponent(
-              scope = Any::class, 
-              parentScope = Unit::class,
-            )
-            interface SubcomponentInterface2 {
-              @ContributesSubcomponent.Factory
-              interface Factory {
-                fun create(): SubcomponentInterface2
-              }
+
+    val generatedCode =
+      //language=kotlin
+      """
+        package com.squareup.test
+              
+        import com.squareup.anvil.annotations.ContributesSubcomponent
+        import com.squareup.anvil.annotations.ContributesTo
+        import com.squareup.test.SubcomponentInterface1
     
-              @ContributesTo(Unit::class)
-              interface ParentComponent {
-                fun createFactory(): Factory
-              }
-            }
-          """.trimIndent()
+        @ContributesSubcomponent(
+          scope = Any::class, 
+          parentScope = Unit::class,
+        )
+        interface SubcomponentInterface2 {
+          @ContributesSubcomponent.Factory
+          interface Factory {
+            fun create(): SubcomponentInterface2
+          }
+
+          @ContributesTo(Unit::class)
+          interface ParentComponent {
+            fun createFactory(): Factory
+          }
         }
+      """.trimIndent()
+
+    val localMode = if (mode is AnvilCompilationMode.Ksp) {
+      val provider = simpleSymbolProcessor { resolver ->
+        resolver.getSymbolsWithAnnotation(mergeComponentFqName.asString())
+          .firstOrNull()
+          ?.let {
+            listOf(generatedCode)
+          }
+          .orEmpty()
+      }
+      AnvilCompilationMode.Ksp(listOf(provider))
+    } else {
+      val codeGenerator = simpleCodeGenerator { clazz ->
+        clazz
+          .takeIf { it.isAnnotatedWith(mergeComponentFqName) }
+          ?.let {
+            generatedCode
+          }
+      }
+      AnvilCompilationMode.Embedded(listOf(codeGenerator))
     }
 
     compile(
@@ -1970,7 +2000,7 @@ class ContributesSubcomponentHandlerGeneratorTest(
         @MergeComponent(Unit::class)
         interface ComponentInterface
       """,
-      mode = AnvilCompilationMode.Embedded(listOf(codeGenerator)),
+      mode = localMode,
     ) {
       val parentComponentInterface1 = subcomponentInterface1
         .anvilComponent(componentInterface)
@@ -2138,26 +2168,40 @@ class ContributesSubcomponentHandlerGeneratorTest(
   @Test
   fun `a previously generated contributed subcomponent can be replaced in a later round of generations`() {
     assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
-    // TODO support KSP in this too
-    assumeTrue(mode is AnvilCompilationMode.Embedded)
-    val codeGenerator = simpleCodeGenerator { clazz ->
-      clazz
-        .takeIf { it.isAnnotatedWith(mergeComponentFqName) }
-        ?.let {
-          //language=kotlin
-          """
-            package com.squareup.test
-                
-            import com.squareup.anvil.annotations.ContributesSubcomponent
-      
-            @ContributesSubcomponent(
-              scope = Any::class, 
-              parentScope = Unit::class,
-              replaces = [SubcomponentInterface1::class]
-            )
-            interface SubcomponentInterface2
-          """.trimIndent()
-        }
+
+    val generatedCode = //language=kotlin
+      """
+        package com.squareup.test
+            
+        import com.squareup.anvil.annotations.ContributesSubcomponent
+  
+        @ContributesSubcomponent(
+          scope = Any::class, 
+          parentScope = Unit::class,
+          replaces = [SubcomponentInterface1::class]
+        )
+        interface SubcomponentInterface2
+      """.trimIndent()
+
+    val localMode = if (mode is AnvilCompilationMode.Ksp) {
+      val provider = simpleSymbolProcessor { resolver ->
+        resolver.getSymbolsWithAnnotation(mergeComponentFqName.asString())
+          .firstOrNull()
+          ?.let {
+            listOf(generatedCode)
+          }
+          .orEmpty()
+      }
+      AnvilCompilationMode.Ksp(listOf(provider))
+    } else {
+      val codeGenerator = simpleCodeGenerator { clazz ->
+        clazz
+          .takeIf { it.isAnnotatedWith(mergeComponentFqName) }
+          ?.let {
+            generatedCode
+          }
+      }
+      AnvilCompilationMode.Embedded(listOf(codeGenerator))
     }
 
     compile(
@@ -2176,7 +2220,7 @@ class ContributesSubcomponentHandlerGeneratorTest(
         @MergeComponent(Unit::class)
         interface ComponentInterface
       """,
-      mode = AnvilCompilationMode.Embedded(listOf(codeGenerator)),
+      mode = localMode,
     ) {
       val parentComponentInterface2 = subcomponentInterface2
         .anvilComponent(componentInterface)
