@@ -981,10 +981,10 @@ internal class KspContributionMerger(
 
           // Manually override and implement these original declaration to point at their
           // contributed parent components instead
-          when (declaration) {
+          when (val decl = declaration.originalDeclaration) {
             is KSFunctionDeclaration -> {
               addFunction(
-                declaration.toFunSpec()
+                decl.toFunSpec()
                   .toBuilder()
                   .addModifiers(OVERRIDE)
                   .addStatement("return %L", body)
@@ -993,7 +993,7 @@ internal class KspContributionMerger(
             }
             is KSPropertyDeclaration -> {
               addProperty(
-                declaration.toPropertySpec()
+                decl.toPropertySpec()
                   .toBuilder()
                   .addModifiers(OVERRIDE)
                   .getter(
