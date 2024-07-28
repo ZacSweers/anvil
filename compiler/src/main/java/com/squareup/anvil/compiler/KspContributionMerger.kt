@@ -9,7 +9,6 @@ import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSAnnotation
 import com.google.devtools.ksp.symbol.KSClassDeclaration
-import com.google.devtools.ksp.symbol.KSDeclaration
 import com.google.devtools.ksp.symbol.KSFunctionDeclaration
 import com.google.devtools.ksp.symbol.KSName
 import com.google.devtools.ksp.symbol.KSNode
@@ -90,7 +89,6 @@ import dagger.Module
 import dagger.Subcomponent
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
-import java.util.Objects
 import kotlin.reflect.KClass
 
 /**
@@ -271,7 +269,7 @@ internal class KspContributionMerger(
         contributedSubcomponentData = contributedSubcomponentData,
         originatingDeclarations = originatingDeclarations,
         mergeAnnotatedClass = mergeAnnotatedClass,
-        generatedComponentClassName = generatedComponentClassName
+        generatedComponentClassName = generatedComponentClassName,
       )
     }
 
@@ -998,9 +996,11 @@ internal class KspContributionMerger(
                 declaration.toPropertySpec()
                   .toBuilder()
                   .addModifiers(OVERRIDE)
-                  .getter(FunSpec.getterBuilder()
-                    .addStatement("return %L", body)
-                    .build())
+                  .getter(
+                    FunSpec.getterBuilder()
+                      .addStatement("return %L", body)
+                      .build(),
+                  )
                   .build(),
               )
             }
@@ -1480,7 +1480,7 @@ private fun Creator.extend(
     ClassKind.ENUM_ENTRY,
     ClassKind.OBJECT,
     ClassKind.ANNOTATION_CLASS,
-      -> throw KspAnvilException(
+    -> throw KspAnvilException(
       node = declaration,
       message = "Unsupported class kind: ${declaration.classKind}",
     )

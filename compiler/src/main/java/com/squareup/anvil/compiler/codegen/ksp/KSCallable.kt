@@ -11,7 +11,7 @@ import com.google.devtools.ksp.symbol.KSType
  * Abstraction over [KSFunctionDeclaration] and [KSPropertyDeclaration].
  */
 internal sealed class KSCallable(
-  declaration: KSDeclaration
+  declaration: KSDeclaration,
 ) : KSDeclaration by declaration {
 
   val originalDeclaration = declaration

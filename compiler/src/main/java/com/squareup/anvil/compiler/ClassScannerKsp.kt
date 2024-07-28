@@ -4,7 +4,6 @@ import com.google.devtools.ksp.KspExperimental
 import com.google.devtools.ksp.getVisibility
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.KSClassDeclaration
-import com.google.devtools.ksp.symbol.KSFunctionDeclaration
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 import com.google.devtools.ksp.symbol.KSType
 import com.google.devtools.ksp.symbol.KSTypeReference
@@ -21,7 +20,6 @@ import com.squareup.anvil.compiler.codegen.ksp.isAbstract
 import com.squareup.anvil.compiler.codegen.ksp.isInterface
 import com.squareup.anvil.compiler.codegen.ksp.resolvableAnnotations
 import com.squareup.anvil.compiler.codegen.ksp.resolveKSClassDeclaration
-import com.squareup.anvil.compiler.codegen.ksp.returnTypeOrNull
 import com.squareup.anvil.compiler.codegen.ksp.scope
 import com.squareup.anvil.compiler.codegen.ksp.type
 import com.squareup.kotlinpoet.ksp.toClassName

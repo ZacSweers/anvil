@@ -170,7 +170,9 @@ class KspContributionMergerTest {
       """,
       componentProcessingMode = ComponentProcessingMode.KSP,
     ) {
-      val test = classLoader.loadClass("com.squareup.test.Test").getDeclaredMethod("test", String::class.java)
+      val test = classLoader.loadClass(
+        "com.squareup.test.Test",
+      ).getDeclaredMethod("test", String::class.java)
       val input = "Hello, world!"
       val output = test.invoke(null, "Hello, world!")
       assertThat(output).isEqualTo(input)
