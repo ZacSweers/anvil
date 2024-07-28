@@ -124,59 +124,56 @@ class KspContributionMergerTest {
     }
   }
 
-  @Test fun `factory contributors are picked up`() {
+  @Test fun `factory contributors are wired correctly and subcomponent modules are included`() {
     compile(
       """
+      @file:JvmName("Test")
       package com.squareup.test
       
       import com.squareup.anvil.annotations.MergeComponent
       import com.squareup.anvil.annotations.MergeSubcomponent
       import com.squareup.anvil.annotations.ContributesTo
-      import com.squareup.anvil.annotations.optional.SingleIn
       import dagger.BindsInstance
 
-      abstract class AppScope private constructor()
-      abstract class UserScope private constructor()
-
-      @SingleIn(AppScope::class)
-      @MergeComponent(AppScope::class)
-      interface AppComponent {
+      @MergeComponent(Any::class)
+      interface ComponentInterface {
         @MergeComponent.Factory
         interface Factory {
           fun create(
-            @BindsInstance value: Int,
-          ): AppComponent
+            @BindsInstance value: String,
+          ): ComponentInterface
         }
       }
 
-      @SingleIn(UserScope::class)
-      @MergeSubcomponent(UserScope::class)
-      interface UserComponent {
+      @MergeSubcomponent(Unit::class)
+      interface SubcomponentInterface {
       
-        val value: Int
+        val value: String
       
-        @ContributesTo(AppScope::class)
+        @ContributesTo(Any::class)
         interface Parent {
-          val userComponentFactory: Factory
+          val subcomponentFactory: Factory
         }
       
         @MergeSubcomponent.Factory
         interface Factory {
-          fun create(): UserComponent
+          fun create(): SubcomponentInterface
         }
       }
 
-      fun caller() {
-        val parent = DaggerAppComponent.factory().create(5) as UserComponent.Parent
-        val userComponent = parent.userComponentFactory.create()
+      // Exercise the generated code
+      fun test(value: String): String {
+        val parent = DaggerComponentInterface.factory().create(value) as SubcomponentInterface.Parent
+        val subcomponent = parent.subcomponentFactory.create()
+        return subcomponent.value
       }
       """,
       componentProcessingMode = ComponentProcessingMode.KSP,
     ) {
-      // TODO assert we can get an instance of the UserComponent
-      walkGeneratedFiles(AnvilCompilationMode.Ksp()).forEach {
-        println(it.readText())
-      }
+      val test = classLoader.loadClass("com.squareup.test.Test").getDeclaredMethod("test", String::class.java)
+      val input = "Hello, world!"
+      val output = test.invoke(null, "Hello, world!")
+      assertThat(output).isEqualTo(input)
     }
   }
 }
