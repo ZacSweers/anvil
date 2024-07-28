@@ -234,42 +234,13 @@ internal class KspContributionMerger(
     // component type interface from the subcomponent.
     // Note this must be computed after contributed interfaces are computed as we need to account
     // for contributed parent component interfaces too.
-    var directMergeSubcomponents: List<DirectMergedSubcomponent> = emptyList()
-
-    val contributedInterfaces = if (interfaceMergerAnnotations.isNotEmpty()) {
-      if (!mergeAnnotatedClass.isInterface()) {
-        throw KspAnvilException(
-          node = mergeAnnotatedClass,
-          message = "Dagger components (or classes annotated with @MergeInterfaces)" +
-            " must be interfaces.",
-        )
-      }
-
-      val contributedInterfaces = contributedInterfaces(
-        mergeAnnotations = interfaceMergerAnnotations,
-        originatingDeclarations = originatingDeclarations,
-        resolver = resolver,
-        mergeAnnotatedClass = mergeAnnotatedClass,
-        contributedInterfacesInRound = contributedInterfacesInRound,
-      )
-      directMergeSubcomponents = findMergedSubcomponentInterfaces(
-        resolver,
-        mergeAnnotatedClass,
-        contributedInterfaces,
-      )
-      buildSet {
-        addAll(contributedInterfaces)
-        addAll(
-          directMergeSubcomponents.map {
-            it.mergedSubcomponentClassName.nestedClass(
-              PARENT_COMPONENT,
-            )
-          },
-        )
-      }.toList()
-    } else {
-      null
-    }
+    val (contributedInterfaces, directMergeSubcomponents) = findContributedInterfaces(
+      resolver,
+      mergeAnnotatedClass,
+      interfaceMergerAnnotations,
+      originatingDeclarations,
+      contributedInterfacesInRound,
+    )
 
     val mergeModulesAnnotations = mergeAnnotatedClass
       .findAll(mergeModulesFqName.asString())
@@ -278,7 +249,7 @@ internal class KspContributionMerger(
 
     val daggerMergeAnnotations = mergeComponentAnnotations + mergeModulesAnnotations
 
-    val daggerAnnotation = if (daggerMergeAnnotations.isNotEmpty()) {
+    val daggerAnnotation = daggerMergeAnnotations.ifNotEmpty {
       generateDaggerAnnotation(
         annotations = daggerMergeAnnotations,
         generatedComponentClassName = generatedComponentClassName,
@@ -290,37 +261,18 @@ internal class KspContributionMerger(
         contributedModulesInRound = contributedModulesInRound,
         directMergeSubcomponents = directMergeSubcomponents,
       )
-    } else {
-      null
     }
 
     val scope = (daggerMergeAnnotations + interfaceMergerAnnotations).first().scope()
 
-    val creator = if (mergeComponentAnnotations.isNotEmpty()) {
-      // if we have contributed data, use the factory information from there
-      var resolvedCreator: Creator? = null
-      if (contributedSubcomponentData != null) {
-        val creatorDecl = contributedSubcomponentData.resolveCreatorDeclaration(resolver)
-        if (creatorDecl != null) {
-          originatingDeclarations += creatorDecl
-          resolvedCreator = Creator.fromDeclaration(
-            declaration = creatorDecl,
-            mergeAnnotatedClassName = mergeAnnotatedClass.toClassName(),
-            generatedComponentClassName = generatedComponentClassName,
-          )
-        }
-      }
-      resolvedCreator ?: mergeAnnotatedClass.declarations
-        .filterIsInstance<KSClassDeclaration>()
-        .firstNotNullOfOrNull { nestedClass ->
-          Creator.fromDeclaration(
-            nestedClass,
-            mergeAnnotatedClass.toClassName(),
-            generatedComponentClassName,
-          )
-        }
-    } else {
-      null
+    val creator = mergeComponentAnnotations.ifNotEmpty {
+      findCreator(
+        resolver = resolver,
+        contributedSubcomponentData = contributedSubcomponentData,
+        originatingDeclarations = originatingDeclarations,
+        mergeAnnotatedClass = mergeAnnotatedClass,
+        generatedComponentClassName = generatedComponentClassName
+      )
     }
 
     generateMergedClass(
@@ -337,6 +289,57 @@ internal class KspContributionMerger(
       isModule = isModule,
     )
     return null
+  }
+
+  private fun findContributedInterfaces(
+    resolver: Resolver,
+    mergeAnnotatedClass: KSClassDeclaration,
+    interfaceMergerAnnotations: List<KSAnnotation>,
+    originatingDeclarations: MutableList<KSClassDeclaration>,
+    contributedInterfacesInRound: Map<KSType, List<KSClassDeclaration>>,
+  ): ContributedInterfacesResult {
+    if (interfaceMergerAnnotations.isEmpty()) {
+      return ContributedInterfacesResult.EMPTY
+    }
+
+    if (!mergeAnnotatedClass.isInterface()) {
+      throw KspAnvilException(
+        node = mergeAnnotatedClass,
+        message = "Dagger components (or classes annotated with @MergeInterfaces)" +
+          " must be interfaces.",
+      )
+    }
+
+    val contributedInterfaces = contributedInterfaces(
+      mergeAnnotations = interfaceMergerAnnotations,
+      originatingDeclarations = originatingDeclarations,
+      resolver = resolver,
+      mergeAnnotatedClass = mergeAnnotatedClass,
+      contributedInterfacesInRound = contributedInterfacesInRound,
+    )
+    val directMergeSubcomponents = findMergedSubcomponentInterfaces(
+      resolver,
+      mergeAnnotatedClass,
+      contributedInterfaces,
+    )
+    val allContributedInterfaces = buildSet {
+      addAll(contributedInterfaces)
+      addAll(
+        directMergeSubcomponents.map {
+          it.mergedSubcomponentClassName.nestedClass(PARENT_COMPONENT)
+        },
+      )
+    }
+    return ContributedInterfacesResult(allContributedInterfaces, directMergeSubcomponents)
+  }
+
+  data class ContributedInterfacesResult(
+    val contributedInterfaces: Set<ClassName>,
+    val directMergeSubcomponents: List<DirectMergedSubcomponent>,
+  ) {
+    companion object {
+      val EMPTY = ContributedInterfacesResult(emptySet(), emptyList())
+    }
   }
 
   private fun generateDaggerAnnotation(
@@ -854,6 +857,37 @@ internal class KspContributionMerger(
     return supertypesToAdd
   }
 
+  private fun findCreator(
+    resolver: Resolver,
+    contributedSubcomponentData: ContributedSubcomponentData?,
+    originatingDeclarations: MutableList<KSClassDeclaration>,
+    mergeAnnotatedClass: KSClassDeclaration,
+    generatedComponentClassName: ClassName,
+  ): Creator? {
+    // if we have contributed data, use the factory information from there
+    var resolvedCreator: Creator? = null
+    if (contributedSubcomponentData != null) {
+      val creatorDecl = contributedSubcomponentData.resolveCreatorDeclaration(resolver)
+      if (creatorDecl != null) {
+        originatingDeclarations += creatorDecl
+        resolvedCreator = Creator.fromDeclaration(
+          declaration = creatorDecl,
+          mergeAnnotatedClassName = mergeAnnotatedClass.toClassName(),
+          generatedComponentClassName = generatedComponentClassName,
+        )
+      }
+    }
+    return resolvedCreator ?: mergeAnnotatedClass.declarations
+      .filterIsInstance<KSClassDeclaration>()
+      .firstNotNullOfOrNull { nestedClass ->
+        Creator.fromDeclaration(
+          nestedClass,
+          mergeAnnotatedClass.toClassName(),
+          generatedComponentClassName,
+        )
+      }
+  }
+
   private fun generateMergedClass(
     resolver: Resolver,
     scope: ClassName,
@@ -863,7 +897,7 @@ internal class KspContributionMerger(
     contributedSubcomponentData: ContributedSubcomponentData?,
     creator: Creator?,
     daggerAnnotation: AnnotationSpec?,
-    contributedInterfaces: List<ClassName>?,
+    contributedInterfaces: Collection<ClassName>,
     directMergeSubcomponents: List<DirectMergedSubcomponent>,
     isModule: Boolean,
   ) {
@@ -876,6 +910,7 @@ internal class KspContributionMerger(
         visibility?.let {
           addModifiers(visibility)
         }
+
         // Copy over original annotations
         // TODO should we maybe just only copy over scope or qualifier annotations?
         addAnnotations(
@@ -897,12 +932,14 @@ internal class KspContributionMerger(
             .addMember("scope = %T::class", scope)
             .build(),
         )
+
         if (!isModule) {
           addSuperinterface(mergeAnnotatedClassName)
         }
+
         daggerAnnotation?.let(::addAnnotation)
 
-        contributedInterfaces?.forEach(::addSuperinterface)
+        contributedInterfaces.forEach(::addSuperinterface)
 
         for ((declaration, returnType, targetOrigin, creatorClass) in directMergeSubcomponents) {
           // This is only relevant for creator-less subcomponents
