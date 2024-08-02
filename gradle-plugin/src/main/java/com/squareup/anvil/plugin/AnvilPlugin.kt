@@ -345,13 +345,20 @@ private fun KotlinCompilation<*>.substituteDependencies(
   oldCoordinates: String,
   newCoordinates: String,
 ) {
-  for (configurationName in listOf(apiConfigurationName, implementationConfigurationName, compileOnlyConfigurationName, runtimeOnlyConfigurationName)) {
-    project.configurations.findByName(configurationName)?.resolutionStrategy?.dependencySubstitution {
+  for (configurationName in listOf(
+    apiConfigurationName,
+    implementationConfigurationName,
+    compileOnlyConfigurationName,
+    runtimeOnlyConfigurationName,
+  )) {
+    project.configurations.findByName(
+      configurationName,
+    )?.resolutionStrategy?.dependencySubstitution {
       // entry.key is in the form of "group:module" (without a version), and
       // Gradle accepts that form.
       it.substitute(it.module(oldCoordinates))
         .using(
-          it.module("$newCoordinates:${VERSION}")
+          it.module("$newCoordinates:$VERSION"),
         )
         .withoutArtifactSelectors() // https://github.com/gradle/gradle/issues/5174#issuecomment-828558594
         .because("Anvil-KSP required using a forked artifact")
