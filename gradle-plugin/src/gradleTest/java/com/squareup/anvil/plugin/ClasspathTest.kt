@@ -136,7 +136,7 @@ internal class ClasspathTest : BaseGradleTest() {
         }
 
         taskOutputs[":printCompileClasspath"] shouldBe """
-          com.squareup.anvil:annotations
+          dev.zacsweers.anvil:annotations
           $stdlib
         """.trimIndent()
 
