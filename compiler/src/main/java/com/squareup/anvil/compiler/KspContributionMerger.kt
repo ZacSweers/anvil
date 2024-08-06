@@ -28,6 +28,7 @@ import com.squareup.anvil.annotations.compat.MergeModules
 import com.squareup.anvil.annotations.internal.InternalBindingMarker
 import com.squareup.anvil.annotations.internal.InternalContributedSubcomponentMarker
 import com.squareup.anvil.annotations.internal.InternalMergedTypeMarker
+import com.squareup.anvil.compiler.api.AnvilKspExtension
 import com.squareup.anvil.compiler.codegen.KspContributesSubcomponentHandlerSymbolProcessor
 import com.squareup.anvil.compiler.codegen.KspMergeAnnotationsCheckSymbolProcessor
 import com.squareup.anvil.compiler.codegen.generatedAnvilSubcomponentClassId
@@ -114,6 +115,7 @@ internal class KspContributionMerger(
   override val env: SymbolProcessorEnvironment,
   private val classScanner: ClassScannerKsp,
   private val contributesSubcomponentHandler: KspContributesSubcomponentHandlerSymbolProcessor,
+  private val extensions: Set<AnvilKspExtension>,
 ) : AnvilSymbolProcessor() {
 
   /** @see OPTION_GENERATE_SHIMS */
@@ -157,6 +159,14 @@ internal class KspContributionMerger(
 
     contributesSubcomponentHandler.process(resolver)
 
+    val deferredByExtensions = mutableListOf<KSAnnotated>()
+    for (extension in extensions) {
+      deferredByExtensions += extension.process(resolver)
+    }
+    if (deferredByExtensions.isNotEmpty()) {
+      shouldDefer = true
+    }
+
     // Don't defer if it's both ContributesTo and MergeModules/MergeInterfaces. In this case,
     // we need to process now and just point at what will eventually be generated
 
@@ -196,11 +206,11 @@ internal class KspContributionMerger(
     val deferred = resolver.getSymbolsWithAnnotations(MERGE_ANNOTATION_NAMES)
       .filterIsInstance<KSClassDeclaration>()
       .validate { deferred ->
-        return deferred
+        return deferred + deferredByExtensions
       }
       .also { mergeAnnotatedTypes ->
         if (shouldDefer) {
-          return mergeAnnotatedTypes
+          return mergeAnnotatedTypes + deferredByExtensions
         }
       }
       .mapNotNull { annotated ->
@@ -212,7 +222,7 @@ internal class KspContributionMerger(
         )
       }
 
-    return deferred
+    return deferred + deferredByExtensions
   }
 
   /**
