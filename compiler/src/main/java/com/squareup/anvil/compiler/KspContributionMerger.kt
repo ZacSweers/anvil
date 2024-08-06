@@ -129,7 +129,6 @@ internal class KspContributionMerger(
   private val allContributingAnnotations = buildSet {
     add(contributesBindingFqName.asString())
     add(contributesMultibindingFqName.asString())
-    add(contributesToFqName.asString())
     env.options[OPTION_EXTRA_CONTRIBUTING_ANNOTATIONS]?.let {
       if (it.isNotBlank()) {
         addAll(it.splitToSequence(',').filterNot { it.isBlank() })
