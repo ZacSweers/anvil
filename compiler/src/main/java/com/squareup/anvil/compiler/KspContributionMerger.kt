@@ -91,6 +91,13 @@ import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import kotlin.reflect.KClass
 
+private val MERGE_ANNOTATION_NAMES = setOf(
+  mergeComponentFqName.asString(),
+  mergeSubcomponentFqName.asString(),
+  mergeModulesFqName.asString(),
+  mergeInterfacesFqName.asString(),
+)
+
 /**
  * A [com.google.devtools.ksp.processing.SymbolProcessor] that performs the two types of merging
  * Anvil supports.
@@ -115,17 +122,28 @@ internal class KspContributionMerger(
   private val contributedSubcomponentDataCache =
     mutableMapOf<FqName, ContributedSubcomponentData?>()
 
+  // TODO handle if they also read merge annotations
+  //  if they do, check their outputs for contributors in-round?
+  private val allContributingAnnotations = buildSet {
+    add(contributesBindingFqName.asString())
+    add(contributesMultibindingFqName.asString())
+    add(contributesToFqName.asString())
+    env.options[OPTION_EXTRA_CONTRIBUTING_ANNOTATIONS]?.let {
+      if (it.isNotBlank()) {
+        addAll(it.splitToSequence(',').filterNot { it.isBlank() })
+      }
+    }
+    // contributesSubcomponentFqName is handled uniquely
+  }.filterNotTo(mutableSetOf()) { it in MERGE_ANNOTATION_NAMES }
+
   override fun processChecked(
     resolver: Resolver,
   ): List<KSAnnotated> {
-    // If there's any remaining `@Contributes*`-annotated classes, defer to a later round
-    val contributingAnnotations = resolver.getSymbolsWithAnnotations(
-      contributesBindingFqName,
-      contributesMultibindingFqName,
-      contributesSubcomponentFqName,
-    ).toList()
+    // If there's any remaining `@Contributes*` or custom contributing annotated symbols, defer to
+    // a later round
+    val contributingAnnotations = resolver.getSymbolsWithAnnotations(allContributingAnnotations)
 
-    var shouldDefer = contributingAnnotations.isNotEmpty()
+    var shouldDefer = contributingAnnotations.any()
 
     if (!shouldDefer) {
       // If any @InternalContributedSubcomponentMarker-annotated classes are generated with
@@ -175,12 +193,8 @@ internal class KspContributionMerger(
         }
       }
 
-    val deferred = resolver.getSymbolsWithAnnotations(
-      mergeComponentFqName,
-      mergeSubcomponentFqName,
-      mergeModulesFqName,
-      mergeInterfacesFqName,
-    ).filterIsInstance<KSClassDeclaration>()
+    val deferred = resolver.getSymbolsWithAnnotations(MERGE_ANNOTATION_NAMES)
+      .filterIsInstance<KSClassDeclaration>()
       .validate { deferred ->
         return deferred
       }
