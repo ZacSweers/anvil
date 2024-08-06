@@ -5,6 +5,7 @@ import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.processing.SymbolProcessorProvider
+import com.google.devtools.ksp.symbol.KSAnnotated
 import com.squareup.anvil.compiler.api.AnvilContext
 import com.squareup.anvil.compiler.api.AnvilKspExtension
 import com.squareup.anvil.compiler.api.ComponentMergingBackend
@@ -22,7 +23,7 @@ import java.util.ServiceLoader
  */
 internal class ClassScanningKspProcessor(
   override val env: SymbolProcessorEnvironment,
-  private val delegate: SymbolProcessor,
+  private val delegates: List<SymbolProcessor>,
 ) : AnvilSymbolProcessor() {
 
   @AutoService(SymbolProcessorProvider::class)
@@ -33,34 +34,43 @@ internal class ClassScanningKspProcessor(
     },
     { env ->
       val context = env.toAnvilContext()
+
       // Shared caching class scanner for both processors
       val classScanner = ClassScannerKsp()
-      // TODO where do we run extensions? Maybe make a composite runner and run both it and handler?
+
+      // Extensions to run
       val extensions = extensions(env, context)
+
+      // ContributesSubcomponent handler, which will always be run but needs to conditionally run
+      // within KspContributionMerger if it's going to run.
       val contributesSubcomponentHandler =
         KspContributesSubcomponentHandlerSymbolProcessor(env, classScanner)
+
       val componentMergingEnabled =
-        !context.disableComponentMerging && !context.generateFactories && context.componentMergingBackend == ComponentMergingBackend.KSP
-      val delegate = if (componentMergingEnabled) {
+        !context.disableComponentMerging &&
+          !context.generateFactories &&
+          context.componentMergingBackend == ComponentMergingBackend.KSP
+
+      val delegates = if (componentMergingEnabled) {
         // We're running component merging, so we need to run both and let KspContributionMerger
         // handle running the contributesSubcomponentHandler when needed.
-        KspContributionMerger(env, classScanner, contributesSubcomponentHandler, extensions)
+        listOf(KspContributionMerger(env, classScanner, contributesSubcomponentHandler, extensions))
       } else {
-        // We're only generating factories/contributessubcomponents, so only run it.
-        contributesSubcomponentHandler
+        // We're only generating factories/contributessubcomponents, so only run it + extensions
+        listOf(contributesSubcomponentHandler, AnvilKspExtensionsRunner(extensions))
       }
-      ClassScanningKspProcessor(env, delegate)
+      ClassScanningKspProcessor(env, delegates)
     },
   )
 
-  override fun processChecked(resolver: Resolver) = delegate.process(resolver)
+  override fun processChecked(resolver: Resolver) = delegates.flatMap { it.process(resolver) }
 
   override fun finish() {
-    delegate.finish()
+    delegates.forEach { it.finish() }
   }
 
   override fun onError() {
-    delegate.onError()
+    delegates.forEach { it.onError() }
   }
 
   companion object {
@@ -83,6 +93,17 @@ internal class ClassScanningKspProcessor(
         env.logger.exception(e)
         emptySet()
       }
+    }
+  }
+
+  /**
+   * A simple [SymbolProcessor] that can run a set of [AnvilKspExtension]s.
+   */
+  private class AnvilKspExtensionsRunner(
+    private val extensions: Set<AnvilKspExtension>,
+  ) : SymbolProcessor {
+    override fun process(resolver: Resolver): List<KSAnnotated> {
+      return extensions.flatMap { it.process(resolver) }
     }
   }
 }
