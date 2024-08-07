@@ -121,7 +121,7 @@ internal class ClassScannerKsp {
     fun toCacheEntry(): CacheEntry {
       return CacheEntry(
         (declaration.parentDeclaration as KSClassDeclaration).fqName,
-        declaration.simpleName.asString(),
+        declaration.qualifiedName!!.asString(),
         baseName,
         isReferenceProperty = this is ReferenceProperty,
       )
@@ -136,7 +136,7 @@ internal class ClassScannerKsp {
       fun materialize(resolver: Resolver): GeneratedProperty {
         val clazz = resolver.getClassDeclarationByName(containingDeclaration.asString())
           ?: error("Could not materialize containing class $containingDeclaration")
-        val property = clazz.getAllProperties().find { it.simpleName.asString() == propertyName }
+        val property = clazz.getAllProperties().find { it.qualifiedName?.asString() == propertyName }
           ?: error("Could not materialize property $propertyName in $containingDeclaration")
         return if (isReferenceProperty) {
           ReferenceProperty(property, baseName)
