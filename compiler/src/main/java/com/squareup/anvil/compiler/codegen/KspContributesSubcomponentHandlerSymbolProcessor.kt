@@ -7,6 +7,7 @@ import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSAnnotation
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSFunctionDeclaration
+import com.google.devtools.ksp.symbol.KSName
 import com.google.devtools.ksp.symbol.KSType
 import com.squareup.anvil.annotations.ContributesSubcomponent
 import com.squareup.anvil.annotations.MergeSubcomponent
@@ -90,6 +91,8 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
    * Computed multiple times, once from the classpath and n+ times from processing rounds.
    */
   private val contributions = mutableSetOf<Contribution>()
+  // Cache of previously looked up contributions, re-looked up each time
+  private val previousRoundContributionClasses = mutableSetOf<KSName>()
 
   private val replacedReferences = mutableSetOf<ClassName>()
   private val processedEvents = mutableSetOf<GenerateCodeEvent>()
@@ -216,6 +219,11 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
 
     hasComputedEventsThisRound = false
     pendingEvents.clear()
+    triggers.clear()
+
+    // For contributions we need to cache the ones we've seen so we can pull them back up next round
+    previousRoundContributionClasses += contributions.mapNotNull { it.clazz.qualifiedName }
+    contributions.clear()
 
     return emptyList()
   }
@@ -258,6 +266,10 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
     // Find new contributed subcomponents in this module. If there's a trigger for them, then we
     // also need to generate code for them later.
     contributions += resolver.getSymbolsWithAnnotations(contributesSubcomponentFqName)
+      // Factory in previous rounds' contributions too
+      .plus(previousRoundContributionClasses.map(resolver::getClassDeclarationByName))
+      .filterIsInstance<KSClassDeclaration>()
+      .distinctBy { it.qualifiedName?.asString() }
       .map {
         val annotation = it.find(contributesSubcomponentFqName.asString()).single()
         Contribution(annotation)
@@ -465,7 +477,7 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
     val parentScopeType = annotation.parentScope().asType(emptyList())
 
     override fun toString(): String {
-      return "Contribution(class=$clazz, scope=$scope, parentScope=$parentScopeType)"
+      return "Contribution(class=${clazz.fqName}, scope=$scope, parentScope=$parentScopeType)"
     }
 
     override fun equals(other: Any?): Boolean {
@@ -476,7 +488,7 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
 
       if (scope != other.scope) return false
       if (parentScopeType != other.parentScopeType) return false
-      if (clazz != other.clazz) return false
+      if (clazz.fqName != other.clazz.fqName) return false
 
       return true
     }
@@ -484,7 +496,7 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
     override fun hashCode(): Int {
       var result = scope.hashCode()
       result = 31 * result + parentScopeType.hashCode()
-      result = 31 * result + clazz.hashCode()
+      result = 31 * result + clazz.fqName.hashCode()
       return result
     }
   }
@@ -495,6 +507,35 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
   ) {
     val generatedAnvilSubcomponent = contribution.clazz.classId
       .generatedAnvilSubcomponentClassId(trigger.clazz.classId)
+
+    // fun toCacheEntry(): CacheEntry {
+    //   return CacheEntry(
+    //     trigger.scope.resolveKSClassDeclaration()!!.toClassName(),
+    //     trigger.hashCode(),
+    //     trigger.clazz.toClassName(),
+    //     contribution.hashCode(),
+    //     contribution.clazz.toClassName()
+    //   )
+    // }
+    //
+    // data class CacheEntry(
+    //   val scope: ClassName,
+    //   val triggerHash: Int,
+    //   val triggerClassName: ClassName,
+    //   val contributionHash: Int,
+    //   val contributionClassName: ClassName,
+    // ) {
+    //   constructor(
+    //     trigger: Trigger,
+    //     contribution: Contribution
+    //   ) : this(
+    //     trigger.scope.resolveKSClassDeclaration()!!.toClassName(),
+    //     trigger.hashCode(),
+    //     trigger.clazz.toClassName(),
+    //     contribution.hashCode(),
+    //     contribution.clazz.toClassName()
+    //   )
+    // }
   }
 
   private class FactoryClassHolder(val originalReference: KSClassDeclaration)
