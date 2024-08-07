@@ -5,6 +5,7 @@ import com.google.devtools.ksp.getClassDeclarationByName
 import com.google.devtools.ksp.getVisibility
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.KSClassDeclaration
+import com.google.devtools.ksp.symbol.KSName
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 import com.google.devtools.ksp.symbol.KSType
 import com.google.devtools.ksp.symbol.KSTypeReference
@@ -120,24 +121,20 @@ internal class ClassScannerKsp {
   ) {
     fun toCacheEntry(): CacheEntry {
       return CacheEntry(
-        (declaration.parentDeclaration as KSClassDeclaration).fqName,
-        declaration.qualifiedName!!.asString(),
+        declaration.qualifiedName!!,
         baseName,
         isReferenceProperty = this is ReferenceProperty,
       )
     }
 
     data class CacheEntry(
-      val containingDeclaration: FqName,
-      val propertyName: String,
+      val propertyName: KSName,
       val baseName: String,
       val isReferenceProperty: Boolean,
     ) {
       fun materialize(resolver: Resolver): GeneratedProperty {
-        val clazz = resolver.getClassDeclarationByName(containingDeclaration.asString())
-          ?: error("Could not materialize containing class $containingDeclaration")
-        val property = clazz.getAllProperties().find { it.qualifiedName?.asString() == propertyName }
-          ?: error("Could not materialize property $propertyName in $containingDeclaration")
+        val property = resolver.getPropertyDeclarationByName(propertyName, includeTopLevel = true)
+          ?: error("Could not materialize property ${propertyName.asString()}")
         return if (isReferenceProperty) {
           ReferenceProperty(property, baseName)
         } else {
