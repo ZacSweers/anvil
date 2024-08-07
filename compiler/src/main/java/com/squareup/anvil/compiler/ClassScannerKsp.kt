@@ -28,7 +28,7 @@ import org.jetbrains.kotlin.name.FqName
 
 internal class ClassScannerKsp {
 
-  private val generatedPropertyCache = mutableMapOf<CacheKey, Collection<List<GeneratedProperty>>>()
+  private val generatedPropertyCache = mutableMapOf<CacheKey, Collection<List<GeneratedProperty.CacheEntry>>>()
   private val parentComponentCache = mutableMapOf<FqName, FqName?>()
   private val overridableParentComponentCallableCache =
     mutableMapOf<FqName, List<KSCallable>>()
@@ -62,10 +62,11 @@ internal class ClassScannerKsp {
       generatedPropertyCache.getOrPut(CacheKey(annotation, resolver.hashCode())) {
         resolver.getDeclarationsFromPackage(HINT_PACKAGE)
           .filterIsInstance<KSPropertyDeclaration>()
-          .mapNotNull { GeneratedProperty.from(it) }
-          .groupBy { property -> property.baseName }
+          .mapNotNull(GeneratedProperty::from)
+          .groupBy(GeneratedProperty::baseName)
           .values
-      }
+          .map { it.map(GeneratedProperty::toCacheEntry) }
+      }.map { it.map { it.materialize(resolver) } }
 
     return propertyGroups
       .asSequence()
@@ -117,6 +118,34 @@ internal class ClassScannerKsp {
     val declaration: KSPropertyDeclaration,
     val baseName: String,
   ) {
+    fun toCacheEntry(): CacheEntry {
+      return CacheEntry(
+        (declaration.parentDeclaration as KSClassDeclaration).fqName,
+        declaration.simpleName.asString(),
+        baseName,
+        isReferenceProperty = this is ReferenceProperty,
+      )
+    }
+
+    data class CacheEntry(
+      val containingDeclaration: FqName,
+      val propertyName: String,
+      val baseName: String,
+      val isReferenceProperty: Boolean,
+    ) {
+      fun materialize(resolver: Resolver): GeneratedProperty {
+        val clazz = resolver.getClassDeclarationByName(containingDeclaration.asString())
+          ?: error("Could not materialize containing class $containingDeclaration")
+        val property = clazz.getAllProperties().find { it.simpleName.asString() == propertyName }
+          ?: error("Could not materialize property $propertyName in $containingDeclaration")
+        return if (isReferenceProperty) {
+          ReferenceProperty(property, baseName)
+        } else {
+          ScopeProperty(property, baseName)
+        }
+      }
+    }
+
     class ReferenceProperty(
       declaration: KSPropertyDeclaration,
       baseName: String,
