@@ -91,7 +91,7 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
    */
   private val contributions = mutableSetOf<Contribution>()
 
-  private val replacedReferences = mutableSetOf<KSClassDeclaration>()
+  private val replacedReferences = mutableSetOf<ClassName>()
   private val processedEvents = mutableSetOf<GenerateCodeEvent>()
 
   private var isFirstRound = true
@@ -265,14 +265,14 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
 
     // Find all replaced subcomponents and remember them.
     replacedReferences += contributions
-      .flatMap { contribution -> contribution.annotation.replaces() }
+      .flatMap { contribution -> contribution.annotation.replaces().map { it.toClassName() } }
 
     for (contribution in contributions) {
       checkReplacedSubcomponentWasNotAlreadyGenerated(contribution.clazz, replacedReferences)
     }
 
     // Remove any contribution that was replaced by another contribution.
-    contributions.removeAll { it.clazz in replacedReferences }
+    contributions.removeAll { it.clazz.toClassName() in replacedReferences }
 
     pendingEvents += contributions
       .flatMap { contribution ->
@@ -377,14 +377,14 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
 
   private fun checkReplacedSubcomponentWasNotAlreadyGenerated(
     contributedReference: KSClassDeclaration,
-    replacedReferences: Collection<KSClassDeclaration>,
+    replacedReferences: Collection<ClassName>,
   ) {
     replacedReferences.forEach { replacedReference ->
-      if (processedEvents.any { it.contribution.clazz == replacedReference }) {
+      if (processedEvents.any { it.contribution.clazz.toClassName() == replacedReference }) {
         throw KspAnvilException(
           node = contributedReference,
           message = "${contributedReference.fqName} tries to replace " +
-            "${replacedReference.fqName}, but the code for ${replacedReference.fqName} was " +
+            "${replacedReference}, but the code for $replacedReference was " +
             "already generated. This is not supported.",
         )
       }
@@ -413,6 +413,7 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
           .resolvableAnnotations
           .single { it.fqName == contributesSubcomponentFqName }
           .replaces()
+          .map { it.toClassName() }
       }
   }
 
