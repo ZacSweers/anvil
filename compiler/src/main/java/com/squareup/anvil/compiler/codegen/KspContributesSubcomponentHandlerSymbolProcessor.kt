@@ -513,35 +513,6 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
   ) {
     val generatedAnvilSubcomponent = contribution.clazz.classId
       .generatedAnvilSubcomponentClassId(trigger.clazz.classId)
-
-    // fun toCacheEntry(): CacheEntry {
-    //   return CacheEntry(
-    //     trigger.scope.resolveKSClassDeclaration()!!.toClassName(),
-    //     trigger.hashCode(),
-    //     trigger.clazz.toClassName(),
-    //     contribution.hashCode(),
-    //     contribution.clazz.toClassName()
-    //   )
-    // }
-    //
-    // data class CacheEntry(
-    //   val scope: ClassName,
-    //   val triggerHash: Int,
-    //   val triggerClassName: ClassName,
-    //   val contributionHash: Int,
-    //   val contributionClassName: ClassName,
-    // ) {
-    //   constructor(
-    //     trigger: Trigger,
-    //     contribution: Contribution
-    //   ) : this(
-    //     trigger.scope.resolveKSClassDeclaration()!!.toClassName(),
-    //     trigger.hashCode(),
-    //     trigger.clazz.toClassName(),
-    //     contribution.hashCode(),
-    //     contribution.clazz.toClassName()
-    //   )
-    // }
   }
 
   private class FactoryClassHolder(val originalReference: KSClassDeclaration)
