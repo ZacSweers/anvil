@@ -31,7 +31,7 @@ internal class ClassScannerKsp {
   private val generatedPropertyCache = mutableMapOf<CacheKey, Collection<List<GeneratedProperty.CacheEntry>>>()
   private val parentComponentCache = mutableMapOf<FqName, FqName?>()
   private val overridableParentComponentCallableCache =
-    mutableMapOf<FqName, List<KSCallable>>()
+    mutableMapOf<FqName, List<KSCallable.CacheEntry>>()
 
   /**
    * Externally-contributed contributions, which are important to track so that we don't try to
@@ -225,6 +225,7 @@ internal class ClassScannerKsp {
     }
 
     val callables = overridableParentComponentCallables(
+      resolver,
       componentInterface,
       componentClass.fqName,
       creatorClass?.fqName,
@@ -251,6 +252,7 @@ internal class ClassScannerKsp {
    * for the given [targetReturnType]. This can include both functions and properties.
    */
   fun overridableParentComponentCallables(
+    resolver: Resolver,
     parentComponent: KSClassDeclaration,
     targetReturnType: FqName,
     creatorClass: FqName?,
@@ -259,7 +261,7 @@ internal class ClassScannerKsp {
 
     // Can't use getOrPut because it doesn't differentiate between absent and null
     if (fqName in overridableParentComponentCallableCache) {
-      return overridableParentComponentCallableCache.getValue(fqName)
+      return overridableParentComponentCallableCache.getValue(fqName).map { it.materialize(resolver) }
     }
 
     return parentComponent.getAllCallables()
@@ -270,7 +272,7 @@ internal class ClassScannerKsp {
       }
       .toList()
       .also {
-        overridableParentComponentCallableCache[fqName] = it
+        overridableParentComponentCallableCache[fqName] = it.map(KSCallable::toCacheEntry)
       }
   }
 }
