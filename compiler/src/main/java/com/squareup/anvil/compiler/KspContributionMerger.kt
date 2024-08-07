@@ -991,7 +991,7 @@ internal class KspContributionMerger(
           val body: CodeBlock =
             classScanner.findParentComponentInterface(resolver, declarationToSearch, null, null)
               ?.let {
-                classScanner.overridableParentComponentCallables(it, returnType.fqName, null)
+                classScanner.overridableParentComponentCallables(resolver, it, returnType.fqName, null)
               }
               ?.singleOrNull()
               ?.let { callable ->
@@ -1114,6 +1114,7 @@ internal class KspContributionMerger(
             generatedParentComponent = true
             addType(
               generateParentComponent(
+                resolver = resolver,
                 classScanner = classScanner,
                 origin = mergeAnnotatedClass,
                 parentParentComponent = parentClass,
@@ -1133,6 +1134,7 @@ internal class KspContributionMerger(
           }
           addType(
             generateParentComponent(
+              resolver = resolver,
               classScanner = classScanner,
               origin = mergeAnnotatedClass,
               parentParentComponent = classScanner.findParentComponentInterface(
@@ -1847,6 +1849,7 @@ private fun defaultParentComponentFunctionName(returnType: ClassName): String =
 
 // TODO consolidate with contributessubcomponent handling?
 private fun generateParentComponent(
+  resolver: Resolver,
   classScanner: ClassScannerKsp,
   origin: KSClassDeclaration,
   parentParentComponent: KSClassDeclaration?,
@@ -1857,6 +1860,7 @@ private fun generateParentComponent(
 ): TypeSpec {
   val newSpec = if (parentParentComponent != null) {
     val callableToOverride = classScanner.overridableParentComponentCallables(
+      resolver,
       parentParentComponent,
       targetReturnType = componentInterface,
       creatorClass = factoryClass,
