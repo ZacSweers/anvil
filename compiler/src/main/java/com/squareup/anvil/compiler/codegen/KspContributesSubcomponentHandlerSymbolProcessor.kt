@@ -156,6 +156,7 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
             .apply {
               val parentComponentInterface =
                 classScanner.findParentComponentInterface(
+                  resolver,
                   contribution.clazz,
                   factoryClass?.originalReference,
                   contribution.parentScopeType,

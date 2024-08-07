@@ -989,7 +989,7 @@ internal class KspContributionMerger(
           // If we have a contributed subcomponent for this type, we can use its known
           // subcomponent data
           val body: CodeBlock =
-            classScanner.findParentComponentInterface(declarationToSearch, null, null)
+            classScanner.findParentComponentInterface(resolver, declarationToSearch, null, null)
               ?.let {
                 classScanner.overridableParentComponentCallables(it, returnType.fqName, null)
               }
@@ -1136,6 +1136,7 @@ internal class KspContributionMerger(
               classScanner = classScanner,
               origin = mergeAnnotatedClass,
               parentParentComponent = classScanner.findParentComponentInterface(
+                resolver,
                 mergeAnnotatedClass,
                 factoryClass,
                 null,

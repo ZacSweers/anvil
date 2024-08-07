@@ -1,6 +1,7 @@
 package com.squareup.anvil.compiler
 
 import com.google.devtools.ksp.KspExperimental
+import com.google.devtools.ksp.getClassDeclarationByName
 import com.google.devtools.ksp.getVisibility
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.KSClassDeclaration
@@ -28,7 +29,7 @@ import org.jetbrains.kotlin.name.FqName
 internal class ClassScannerKsp {
 
   private val generatedPropertyCache = mutableMapOf<CacheKey, Collection<List<GeneratedProperty>>>()
-  private val parentComponentCache = mutableMapOf<FqName, KSClassDeclaration?>()
+  private val parentComponentCache = mutableMapOf<FqName, FqName?>()
   private val overridableParentComponentCallableCache =
     mutableMapOf<FqName, List<KSCallable>>()
 
@@ -160,6 +161,7 @@ internal class ClassScannerKsp {
    * Finds the applicable parent component interface (if any) contributed to this component.
    */
   fun findParentComponentInterface(
+    resolver: Resolver,
     componentClass: KSClassDeclaration,
     creatorClass: KSClassDeclaration?,
     parentScopeType: KSType?,
@@ -168,7 +170,7 @@ internal class ClassScannerKsp {
 
     // Can't use getOrPut because it doesn't differentiate between absent and null
     if (fqName in parentComponentCache) {
-      return parentComponentCache[fqName]
+      return parentComponentCache[fqName]?.let { resolver.getClassDeclarationByName(it.asString()) }
     }
 
     val contributedInnerComponentInterfaces = componentClass
@@ -211,7 +213,7 @@ internal class ClassScannerKsp {
       )
     }
 
-    parentComponentCache[fqName] = componentInterface
+    parentComponentCache[fqName] = componentInterface.fqName
     return componentInterface
   }
 
