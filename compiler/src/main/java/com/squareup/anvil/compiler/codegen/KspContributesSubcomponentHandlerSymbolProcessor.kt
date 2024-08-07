@@ -95,7 +95,8 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
   private val previousRoundContributionClasses = mutableSetOf<KSName>()
 
   private val replacedReferences = mutableSetOf<ClassName>()
-  private val processedEvents = mutableSetOf<GenerateCodeEvent>()
+  private val processedEventHashes = mutableSetOf<Int>()
+  private val processedContributionClasses = mutableSetOf<ClassName>()
 
   private var isFirstRound = true
   private var hasComputedEventsThisRound = false
@@ -111,7 +112,10 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
     }
 
     pendingEvents
-      .also { processedEvents += it }
+      .onEach {
+        processedEventHashes += it.hashCode()
+        processedContributionClasses += it.contribution.classClassName
+      }
       .map { generateCodeEvent ->
         val contribution = generateCodeEvent.contribution
         val generatedAnvilSubcomponent = generateCodeEvent.generatedAnvilSubcomponent
@@ -122,7 +126,7 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
 
         val factoryClass = findFactoryClass(contribution)
 
-        val contributionClassName = contribution.clazz.toClassName()
+        val contributionClassName = contribution.classClassName
         val spec = FileSpec.createAnvilSpec(generatedPackage, componentClassSimpleName) {
           TypeSpec
             .interfaceBuilder(componentClassSimpleName)
@@ -297,7 +301,7 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
           }
       }
       // Don't generate code for the same event twice.
-      .minus(processedEvents)
+      .filterNot { it.hashCode() in processedEventHashes }
   }
 
   private fun generateParentComponent(
@@ -328,7 +332,7 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
   private fun findFactoryClass(
     contribution: Contribution,
   ): FactoryClassHolder? {
-    val contributionClassName = contribution.clazz.toClassName()
+    val contributionClassName = contribution.classClassName
 
     val contributedFactories = contribution.clazz
       .declarations
@@ -392,7 +396,7 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
     replacedReferences: Collection<ClassName>,
   ) {
     replacedReferences.forEach { replacedReference ->
-      if (processedEvents.any { it.contribution.clazz.toClassName() == replacedReference }) {
+      if (processedContributionClasses.any { it == replacedReference }) {
         throw KspAnvilException(
           node = contributedReference,
           message = "${contributedReference.fqName} tries to replace " +
@@ -473,11 +477,12 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
 
   private class Contribution(val annotation: KSAnnotation) {
     val clazz = annotation.declaringClass
+    val classClassName = clazz.toClassName()
     val scope = annotation.scope()
     val parentScopeType = annotation.parentScope().asType(emptyList())
 
     override fun toString(): String {
-      return "Contribution(class=${clazz.fqName}, scope=$scope, parentScope=$parentScopeType)"
+      return "Contribution(class=${classClassName}, scope=$scope, parentScope=$parentScopeType)"
     }
 
     override fun equals(other: Any?): Boolean {
@@ -488,7 +493,7 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
 
       if (scope != other.scope) return false
       if (parentScopeType != other.parentScopeType) return false
-      if (clazz.fqName != other.clazz.fqName) return false
+      if (classClassName != other.classClassName) return false
 
       return true
     }
@@ -496,7 +501,7 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
     override fun hashCode(): Int {
       var result = scope.hashCode()
       result = 31 * result + parentScopeType.hashCode()
-      result = 31 * result + clazz.fqName.hashCode()
+      result = 31 * result + classClassName.hashCode()
       return result
     }
   }
