@@ -29,7 +29,8 @@ import org.jetbrains.kotlin.name.FqName
 
 internal class ClassScannerKsp {
 
-  private val generatedPropertyCache = mutableMapOf<CacheKey, Collection<List<GeneratedProperty.CacheEntry>>>()
+  private val generatedPropertyCache =
+    mutableMapOf<CacheKey, Collection<List<GeneratedProperty.CacheEntry>>>()
   private val parentComponentCache = mutableMapOf<FqName, FqName?>()
   private val overridableParentComponentCallableCache =
     mutableMapOf<FqName, List<KSCallable.CacheEntry>>()
@@ -258,7 +259,9 @@ internal class ClassScannerKsp {
 
     // Can't use getOrPut because it doesn't differentiate between absent and null
     if (fqName in overridableParentComponentCallableCache) {
-      return overridableParentComponentCallableCache.getValue(fqName).map { it.materialize(resolver) }
+      return overridableParentComponentCallableCache.getValue(
+        fqName,
+      ).map { it.materialize(resolver) }
     }
 
     return parentComponent.getAllCallables()

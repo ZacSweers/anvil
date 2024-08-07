@@ -91,6 +91,7 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
    * Computed multiple times, once from the classpath and n+ times from processing rounds.
    */
   private val contributions = mutableSetOf<Contribution>()
+
   // Cache of previously looked up contributions, re-looked up each time
   private val previousRoundContributionClasses = mutableSetOf<KSName>()
 
@@ -400,7 +401,7 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
         throw KspAnvilException(
           node = contributedReference,
           message = "${contributedReference.fqName} tries to replace " +
-            "${replacedReference}, but the code for $replacedReference was " +
+            "$replacedReference, but the code for $replacedReference was " +
             "already generated. This is not supported.",
         )
       }
@@ -482,7 +483,7 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
     val parentScopeType = annotation.parentScope().asType(emptyList())
 
     override fun toString(): String {
-      return "Contribution(class=${classClassName}, scope=$scope, parentScope=$parentScopeType)"
+      return "Contribution(class=$classClassName, scope=$scope, parentScope=$parentScopeType)"
     }
 
     override fun equals(other: Any?): Boolean {
