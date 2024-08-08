@@ -360,7 +360,7 @@ In K2, things change.
    - This is more or less how Dagger/Hilt works, and would require a fundamental rethinking of how Anvil's code gen works. Hilt also requires the addition of an extra javac task at the end of the compilation to support in-source contributions too, making this an expensive potentially-5 compilation chain.
    - Would still require generation of intermediate merged classes, since the same sources are fed into the later kapt and compilation tasks.
 3. Attempt to move component merging to standard javac and intercept dagger's component processor during apt. Wholly unclear if this is technically possible to do, let alone safely.
-4. Drop support for Dagger all together, at which point this library just becomes a standalone DI library. May be technically possible, but not going to happen any time soon.
+4. Drop support for Dagger all together, at which point this library just becomes a standalone DI library. May be technically possible, but not in the time frame needed to unblock K2.
 
 
 FIR plugins also carry extra considerations:
