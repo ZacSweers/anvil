@@ -33,7 +33,7 @@ internal class ClassScannerKsp(
   tracer: KspTracer,
 ) : KspTracer by tracer {
   private val generatedPropertyCache =
-    RecordingCache<CacheKey, Collection<List<GeneratedProperty.CacheEntry>>>("Generated Property")
+    RecordingCache<FqName, Collection<List<GeneratedProperty.CacheEntry>>>("Generated Property")
 
   private val parentComponentCache = RecordingCache<FqName, FqName?>("ParentComponent")
 
@@ -60,12 +60,11 @@ internal class ClassScannerKsp(
     resolver: Resolver,
     annotation: FqName,
   ): Collection<List<GeneratedProperty>> {
-    val key = CacheKey(annotation, resolver.hashCode())
     // Don't use getOrPut so we can skip the intermediate re-materialization step when we have a miss
-    return if (key in generatedPropertyCache) {
+    return if (annotation in generatedPropertyCache) {
       generatedPropertyCache.hit()
       trace("Materializing property groups cache hit for ${annotation.shortName().asString()}") {
-        generatedPropertyCache.getValue(key)
+        generatedPropertyCache.getValue(annotation)
           .map { it.map { it.materialize(resolver) } }
       }
     } else {
@@ -78,7 +77,7 @@ internal class ClassScannerKsp(
           .values
           .also {
             // Store the cache entry for the next time
-            generatedPropertyCache[key] = it.map { it.map(GeneratedProperty::toCacheEntry) }
+            generatedPropertyCache[annotation] = it.map { it.map(GeneratedProperty::toCacheEntry) }
           }
       }
     }
@@ -207,12 +206,6 @@ internal class ClassScannerKsp(
       }
     }
   }
-
-  private data class CacheKey(
-    val fqName: FqName,
-    // TODO Is this still necessary now that we don't preserve symbols?
-    val resolverHash: Int,
-  )
 
   /**
    * Finds the applicable parent component interface (if any) contributed to this component.
