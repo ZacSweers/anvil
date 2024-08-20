@@ -31,6 +31,12 @@ internal class KspTracerImpl(
 internal inline fun <T> KspTracer.trace(message: String, block: () -> T): T {
   contract { callsInPlace(block, kotlin.contracts.InvocationKind.EXACTLY_ONCE) }
   val (result, duration) = measureTimedValue(block)
-  log("$message took ${duration.inWholeMilliseconds}ms")
+  val durationMs = duration.inWholeMilliseconds
+  val prefix = if (durationMs > 200) {
+    "[SLOW] "
+  } else {
+    ""
+  }
+  log("$prefix$message took ${duration.inWholeMilliseconds}ms")
   return result
 }
