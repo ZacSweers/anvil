@@ -8,6 +8,7 @@ import com.google.devtools.ksp.symbol.KSAnnotated
 import com.squareup.anvil.compiler.OPTION_VERBOSE
 import com.squareup.anvil.compiler.api.AnvilApplicabilityChecker
 import com.squareup.anvil.compiler.codegen.toAnvilContext
+import com.squareup.kotlinpoet.asClassName
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.contract
 import kotlin.time.measureTimedValue
@@ -32,6 +33,7 @@ internal abstract class AnvilSymbolProcessor : SymbolProcessor {
   protected val verbose by lazy(LazyThreadSafetyMode.NONE) {
     env.options[OPTION_VERBOSE]?.toBoolean() ?: false
   }
+  private val logTag = this::class.asClassName().simpleNames.joinToString(".")
   private var round = 0
   private var totalTime = 0L
 
@@ -65,7 +67,7 @@ internal abstract class AnvilSymbolProcessor : SymbolProcessor {
   }
 
   protected fun log(message: String) {
-    val messageWithTag = "[Anvil] ${javaClass.simpleName}: $message"
+    val messageWithTag = "[Anvil] [$logTag] $message"
     if (verbose) {
       env.logger.warn(messageWithTag)
     } else {
@@ -74,7 +76,7 @@ internal abstract class AnvilSymbolProcessor : SymbolProcessor {
   }
 
   override fun finish() {
-    log("${javaClass.simpleName}: Total processing time after $round round(s) took ${totalTime}ms")
+    log("Total processing time after $round round(s) took ${totalTime}ms")
   }
 
   protected abstract fun processChecked(resolver: Resolver): List<KSAnnotated>
