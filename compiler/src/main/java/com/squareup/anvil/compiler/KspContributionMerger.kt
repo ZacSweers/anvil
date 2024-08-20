@@ -219,12 +219,14 @@ internal class KspContributionMerger(
         }
       }
       .mapNotNull { annotated ->
-        processClass(
-          resolver,
-          annotated,
-          contributedInterfacesInRound,
-          contributedModulesInRound,
-        )
+        logTimed("Merging ${annotated.qualifiedName?.asString()}") {
+          processClass(
+            resolver,
+            annotated,
+            contributedInterfacesInRound,
+            contributedModulesInRound,
+          )
+        }
       }
 
     return deferred + deferredByExtensions
@@ -261,13 +263,15 @@ internal class KspContributionMerger(
     // component type interface from the subcomponent.
     // Note this must be computed after contributed interfaces are computed as we need to account
     // for contributed parent component interfaces too.
-    val (contributedInterfaces, directMergeSubcomponents) = findContributedInterfaces(
-      resolver,
-      mergeAnnotatedClass,
-      interfaceMergerAnnotations,
-      originatingDeclarations,
-      contributedInterfacesInRound,
-    )
+    val (contributedInterfaces, directMergeSubcomponents) = logTimed("Finding contributed interfaces for ${mergeAnnotatedClass.qualifiedName?.asString()}") {
+      findContributedInterfaces(
+        resolver,
+        mergeAnnotatedClass,
+        interfaceMergerAnnotations,
+        originatingDeclarations,
+        contributedInterfacesInRound,
+      )
+    }
 
     val mergeModulesAnnotations = mergeAnnotatedClass
       .findAll(mergeModulesFqName.asString())
@@ -277,17 +281,19 @@ internal class KspContributionMerger(
     val daggerMergeAnnotations = mergeComponentAnnotations + mergeModulesAnnotations
 
     val daggerAnnotation = daggerMergeAnnotations.ifNotEmpty {
-      generateDaggerAnnotation(
-        annotations = daggerMergeAnnotations,
-        generatedComponentClassName = generatedComponentClassName,
-        contributedSubcomponentData = contributedSubcomponentData,
-        originatingDeclarations = originatingDeclarations,
-        resolver = resolver,
-        declaration = mergeAnnotatedClass,
-        isModule = isModule,
-        contributedModulesInRound = contributedModulesInRound,
-        directMergeSubcomponents = directMergeSubcomponents,
-      )
+      logTimed("Generating merged Dagger annotation for ${mergeAnnotatedClass.qualifiedName?.asString()}") {
+        generateDaggerAnnotation(
+          annotations = daggerMergeAnnotations,
+          generatedComponentClassName = generatedComponentClassName,
+          contributedSubcomponentData = contributedSubcomponentData,
+          originatingDeclarations = originatingDeclarations,
+          resolver = resolver,
+          declaration = mergeAnnotatedClass,
+          isModule = isModule,
+          contributedModulesInRound = contributedModulesInRound,
+          directMergeSubcomponents = directMergeSubcomponents,
+        )
+      }
     }
 
     val scopeHolder = (daggerMergeAnnotations + interfaceMergerAnnotations).first()
@@ -590,7 +596,8 @@ internal class KspContributionMerger(
           internalBindingMarker.argumentOfTypeAt<Boolean>("isMultibinding") == true
         val qualifierKey =
           internalBindingMarker.argumentOfTypeAt<String>("qualifierKey").orEmpty()
-        val rank = internalBindingMarker.argumentOfTypeAt<Int>("rank") ?: ContributesBinding.RANK_NORMAL
+        val rank =
+          internalBindingMarker.argumentOfTypeAt<Int>("rank") ?: ContributesBinding.RANK_NORMAL
         val scope = contributedAnnotation.scope()
         ContributedBinding(
           scope = scope.contextualToClassName(contributedAnnotation),
@@ -992,7 +999,12 @@ internal class KspContributionMerger(
           val body: CodeBlock =
             classScanner.findParentComponentInterface(resolver, declarationToSearch, null, null)
               ?.let {
-                classScanner.overridableParentComponentCallables(resolver, it, returnType.fqName, null)
+                classScanner.overridableParentComponentCallables(
+                  resolver,
+                  it,
+                  returnType.fqName,
+                  null,
+                )
               }
               ?.singleOrNull()
               ?.let { callable ->
@@ -1323,9 +1335,10 @@ internal class KspContributionMerger(
     mergeAnnotatedComponent: KSClassDeclaration,
     contributedInterfaces: List<ClassName>,
   ): List<DirectMergedSubcomponent> {
-    val contributedCallables = contributedInterfaces.asSequence().mapNotNull { contributedInterface ->
-      resolver.getClassDeclarationByName(contributedInterface.canonicalName)
-    }.flatMap { it.getAllCallables() }
+    val contributedCallables =
+      contributedInterfaces.asSequence().mapNotNull { contributedInterface ->
+        resolver.getClassDeclarationByName(contributedInterface.canonicalName)
+      }.flatMap { it.getAllCallables() }
     return (mergeAnnotatedComponent.getAllCallables() + contributedCallables)
       // Filter out hashcode/equals/toString
       // .filterNot { it.originalDeclaration.parentDeclaration == resolver.builtIns.anyType.declaration }
@@ -1525,7 +1538,7 @@ private fun Creator.extend(
     ClassKind.ENUM_ENTRY,
     ClassKind.OBJECT,
     ClassKind.ANNOTATION_CLASS,
-    -> throw KspAnvilException(
+      -> throw KspAnvilException(
       node = declaration,
       message = "Unsupported class kind: ${declaration.classKind}",
     )
@@ -1882,7 +1895,10 @@ private fun generateParentComponent(
         """.trimIndent() +
           parentParentComponent.getAllFunctions().mapNotNull { function ->
             function.qualifiedName?.let {
-              "${it.asString()}(): ${function.returnTypeOrNull()?.contextualToTypeName(function.reportableReturnTypeNode)}"
+              "${it.asString()}(): ${
+                function.returnTypeOrNull()
+                  ?.contextualToTypeName(function.reportableReturnTypeNode)
+              }"
             }
           }.joinToString("\n", prefix = "\n"),
         node = origin,

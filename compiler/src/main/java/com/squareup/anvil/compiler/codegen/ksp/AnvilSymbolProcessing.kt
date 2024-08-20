@@ -8,6 +8,8 @@ import com.google.devtools.ksp.symbol.KSAnnotated
 import com.squareup.anvil.compiler.OPTION_VERBOSE
 import com.squareup.anvil.compiler.api.AnvilApplicabilityChecker
 import com.squareup.anvil.compiler.codegen.toAnvilContext
+import kotlin.contracts.ExperimentalContracts
+import kotlin.contracts.contract
 import kotlin.time.measureTimedValue
 
 private object NoOpProcessor : SymbolProcessor {
@@ -52,6 +54,14 @@ internal abstract class AnvilSymbolProcessor : SymbolProcessor {
       e.cause?.let(env.logger::exception)
       emptyList()
     }
+  }
+
+  @OptIn(ExperimentalContracts::class)
+  protected inline fun <T> logTimed(message: String, block: () -> T): T {
+    contract { callsInPlace(block, kotlin.contracts.InvocationKind.EXACTLY_ONCE) }
+    val (result, duration) = measureTimedValue(block)
+    log("$message took ${duration.inWholeMilliseconds}ms")
+    return result
   }
 
   protected fun log(message: String) {
