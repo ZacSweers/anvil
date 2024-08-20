@@ -40,7 +40,7 @@ internal abstract class AnvilSymbolProcessor : SymbolProcessor {
     }
     val durationMs = duration.inWholeMilliseconds
     totalTime += durationMs
-    log("${javaClass.simpleName}: Round $round took ${durationMs}ms")
+    log("Round $round took ${durationMs}ms")
     return result
   }
 
@@ -55,10 +55,11 @@ internal abstract class AnvilSymbolProcessor : SymbolProcessor {
   }
 
   protected fun log(message: String) {
+    val messageWithTag = "[Anvil] ${javaClass.simpleName}: $message"
     if (verbose) {
-      env.logger.warn(message)
+      env.logger.warn(messageWithTag)
     } else {
-      env.logger.info(message)
+      env.logger.info(messageWithTag)
     }
   }
 
