@@ -87,7 +87,7 @@ internal class ClassScannerKsp(
   }
 
   private fun getGeneratedProperties(
-    annotation: FqName
+    annotation: FqName,
   ): Collection<List<GeneratedProperty>> {
     // Don't use getOrPut so we can skip the intermediate re-materialization step when we have a miss
     return if (annotation in generatedPropertyCache) {

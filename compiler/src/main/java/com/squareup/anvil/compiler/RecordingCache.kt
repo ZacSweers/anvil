@@ -46,7 +46,7 @@ internal class RecordingCache<K, V>(private val name: String) {
         Size:     ${cache.size}
         Hits:     $hits
         Misses:   $misses
-        Fidelity: ${fidelity}%
+        Fidelity: $fidelity%
     """.trimIndent()
   }
 }
