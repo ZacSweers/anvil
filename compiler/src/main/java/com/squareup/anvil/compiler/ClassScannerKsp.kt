@@ -240,7 +240,10 @@ internal class ClassScannerKsp(
       .toList()
 
     val componentInterface = when (contributedInnerComponentInterfaces.size) {
-      0 -> return null // TODO cache
+      0 -> {
+        parentComponentCache[fqName] = null
+        return null
+      }
       1 -> contributedInnerComponentInterfaces[0]
       else -> throw KspAnvilException(
         node = componentClass,
@@ -259,7 +262,10 @@ internal class ClassScannerKsp(
     }
 
     when (callables.count()) {
-      0 -> return null // TODO cache
+      0 -> {
+        parentComponentCache[fqName] = null
+        return null
+      }
       1 -> {
         // This is ok
       }
