@@ -263,7 +263,9 @@ internal class KspContributionMerger(
     // component type interface from the subcomponent.
     // Note this must be computed after contributed interfaces are computed as we need to account
     // for contributed parent component interfaces too.
-    val (contributedInterfaces, directMergeSubcomponents) = logTimed("Finding contributed interfaces for ${mergeAnnotatedClass.qualifiedName?.asString()}") {
+    val (contributedInterfaces, directMergeSubcomponents) = logTimed(
+      "Finding contributed interfaces for ${mergeAnnotatedClass.qualifiedName?.asString()}",
+    ) {
       findContributedInterfaces(
         resolver,
         mergeAnnotatedClass,
@@ -281,7 +283,9 @@ internal class KspContributionMerger(
     val daggerMergeAnnotations = mergeComponentAnnotations + mergeModulesAnnotations
 
     val daggerAnnotation = daggerMergeAnnotations.ifNotEmpty {
-      logTimed("Generating merged Dagger annotation for ${mergeAnnotatedClass.qualifiedName?.asString()}") {
+      logTimed(
+        "Generating merged Dagger annotation for ${mergeAnnotatedClass.qualifiedName?.asString()}",
+      ) {
         generateDaggerAnnotation(
           annotations = daggerMergeAnnotations,
           generatedComponentClassName = generatedComponentClassName,
@@ -1538,7 +1542,7 @@ private fun Creator.extend(
     ClassKind.ENUM_ENTRY,
     ClassKind.OBJECT,
     ClassKind.ANNOTATION_CLASS,
-      -> throw KspAnvilException(
+    -> throw KspAnvilException(
       node = declaration,
       message = "Unsupported class kind: ${declaration.classKind}",
     )
