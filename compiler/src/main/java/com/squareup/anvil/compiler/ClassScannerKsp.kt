@@ -69,10 +69,12 @@ internal class ClassScannerKsp(
     if (roundStarted) return
     roundStarted = true
     hintCacheWarmer = {
-      hintCache += resolver.getDeclarationsFromPackage(HINT_PACKAGE)
-        .filterIsInstance<KSPropertyDeclaration>()
-        .mapNotNull(GeneratedProperty::from)
-        .groupBy(GeneratedProperty::baseName)
+      hintCache += trace("Warming hint cache") {
+        resolver.getDeclarationsFromPackage(HINT_PACKAGE)
+          .filterIsInstance<KSPropertyDeclaration>()
+          .mapNotNull(GeneratedProperty::from)
+          .groupBy(GeneratedProperty::baseName)
+      }
     }
   }
 
