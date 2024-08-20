@@ -101,7 +101,7 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
   private val processedEventHashes = mutableSetOf<Int>()
   private val processedContributionClasses = mutableSetOf<ClassName>()
 
-  private var isFirstRound = true
+  private var hasComputedInitialContributions = true
   private var hasComputedEventsThisRound = false
   private val pendingEvents = mutableListOf<GenerateCodeEvent>()
 
@@ -255,8 +255,9 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
       hasComputedEventsThisRound = true
     }
 
-    if (isFirstRound) {
-      isFirstRound = false
+    // TODO move this to only if there's triggers?
+    if (hasComputedInitialContributions) {
+      hasComputedInitialContributions = false
       populateInitialContributions(resolver)
     }
 
