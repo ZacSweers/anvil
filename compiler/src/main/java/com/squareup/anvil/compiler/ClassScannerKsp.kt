@@ -162,6 +162,7 @@ internal class ClassScannerKsp(
       val isReferenceProperty: Boolean,
     ) {
       fun materialize(resolver: Resolver): GeneratedProperty {
+        // TODO this is expensive, load from hint package first
         val property = resolver.getPropertyDeclarationByName(propertyName, includeTopLevel = true)
           ?: error("Could not materialize property ${propertyName.asString()}")
         return if (isReferenceProperty) {
