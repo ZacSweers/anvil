@@ -5,7 +5,6 @@ import com.google.devtools.ksp.getClassDeclarationByName
 import com.google.devtools.ksp.getVisibility
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.KSClassDeclaration
-import com.google.devtools.ksp.symbol.KSName
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 import com.google.devtools.ksp.symbol.KSType
 import com.google.devtools.ksp.symbol.KSTypeReference
@@ -33,7 +32,7 @@ internal class ClassScannerKsp(
   tracer: KspTracer,
 ) : KspTracer by tracer {
   private val generatedPropertyCache =
-    RecordingCache<FqName, Collection<List<GeneratedProperty.CacheEntry>>>("Generated Property")
+    RecordingCache<FqName, Collection<List<GeneratedProperty>>>("Generated Property")
 
   private val parentComponentCache = RecordingCache<FqName, FqName?>("ParentComponent")
 
@@ -55,6 +54,36 @@ internal class ClassScannerKsp(
       .arguments.single().type!!.resolve()
   }
 
+  private var hintCacheWarmer: (() -> Unit)? = null
+  private val _hintCache = mutableMapOf<String, List<GeneratedProperty>>()
+  private val hintCache: MutableMap<String, List<GeneratedProperty>>
+    get() {
+      hintCacheWarmer?.invoke()
+      hintCacheWarmer = null
+      return _hintCache
+    }
+  private var roundStarted = false
+
+  @OptIn(KspExperimental::class)
+  fun startRound(resolver: Resolver) {
+    if (roundStarted) return
+    roundStarted = true
+    hintCacheWarmer = {
+      hintCache += resolver.getDeclarationsFromPackage(HINT_PACKAGE)
+        .filterIsInstance<KSPropertyDeclaration>()
+        .mapNotNull(GeneratedProperty::from)
+        .groupBy(GeneratedProperty::baseName)
+    }
+  }
+
+  fun endRound() {
+    hintCache.clear()
+    hintCacheWarmer = null
+    roundStarted = false
+    log(generatedPropertyCache.statsString())
+    generatedPropertyCache.clear()
+  }
+
   @OptIn(KspExperimental::class)
   private fun getGeneratedProperties(
     resolver: Resolver,
@@ -65,7 +94,6 @@ internal class ClassScannerKsp(
       generatedPropertyCache.hit()
       trace("Materializing property groups cache hit for ${annotation.shortName().asString()}") {
         generatedPropertyCache.getValue(annotation)
-          .map { it.map { it.materialize(resolver) } }
       }
     } else {
       generatedPropertyCache.miss()
@@ -75,10 +103,6 @@ internal class ClassScannerKsp(
           .mapNotNull(GeneratedProperty::from)
           .groupBy(GeneratedProperty::baseName)
           .values
-          .also {
-            // Store the cache entry for the next time
-            generatedPropertyCache[annotation] = it.map { it.map(GeneratedProperty::toCacheEntry) }
-          }
       }
     }
   }
@@ -147,31 +171,6 @@ internal class ClassScannerKsp(
     val declaration: KSPropertyDeclaration,
     val baseName: String,
   ) {
-    fun toCacheEntry(): CacheEntry {
-      return CacheEntry(
-        declaration.qualifiedName!!,
-        baseName,
-        isReferenceProperty = this is ReferenceProperty,
-      )
-    }
-
-    data class CacheEntry(
-      val propertyName: KSName,
-      val baseName: String,
-      val isReferenceProperty: Boolean,
-    ) {
-      fun materialize(resolver: Resolver): GeneratedProperty {
-        // TODO this is expensive, load from hint package first
-        val property = resolver.getPropertyDeclarationByName(propertyName, includeTopLevel = true)
-          ?: error("Could not materialize property ${propertyName.asString()}")
-        return if (isReferenceProperty) {
-          ReferenceProperty(property, baseName)
-        } else {
-          ScopeProperty(property, baseName)
-        }
-      }
-    }
-
     class ReferenceProperty(
       declaration: KSPropertyDeclaration,
       baseName: String,
@@ -310,7 +309,6 @@ internal class ClassScannerKsp(
   }
 
   fun dumpStats() {
-    log(generatedPropertyCache.statsString())
     log(parentComponentCache.statsString())
     log(overridableParentComponentCallableCache.statsString())
   }

@@ -6,6 +6,7 @@ import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.processing.SymbolProcessorProvider
 import com.google.devtools.ksp.symbol.KSAnnotated
+import com.squareup.anvil.compiler.ClassScanningKspProcessor.Provider
 import com.squareup.anvil.compiler.api.AnvilContext
 import com.squareup.anvil.compiler.api.AnvilKspExtension
 import com.squareup.anvil.compiler.api.ComponentMergingBackend
@@ -25,6 +26,7 @@ import java.util.ServiceLoader
 internal class ClassScanningKspProcessor(
   override val env: SymbolProcessorEnvironment,
   private val delegates: List<SymbolProcessor>,
+  private val classScanner: ClassScannerKsp,
 ) : AnvilSymbolProcessor() {
 
   @AutoService(SymbolProcessorProvider::class)
@@ -59,11 +61,15 @@ internal class ClassScanningKspProcessor(
         // We're only generating factories/contributessubcomponents, so only run it + extensions
         listOf(contributesSubcomponentHandler, AnvilKspExtensionsRunner(extensions))
       }
-      ClassScanningKspProcessor(env, delegates)
+      ClassScanningKspProcessor(env, delegates, classScanner)
     },
   )
 
-  override fun processChecked(resolver: Resolver) = delegates.flatMap { it.process(resolver) }
+  override fun processChecked(resolver: Resolver): List<KSAnnotated> {
+    classScanner.startRound(resolver)
+    return delegates.flatMap { it.process(resolver) }
+      .also { classScanner.endRound() }
+  }
 
   override fun finish() {
     delegates.forEach { it.finish() }

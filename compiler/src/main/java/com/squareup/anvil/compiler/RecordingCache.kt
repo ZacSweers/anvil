@@ -31,6 +31,10 @@ internal class RecordingCache<K, V>(private val name: String) {
     misses++
   }
 
+  fun clear() {
+    cache.clear()
+  }
+
   fun statsString(): String {
     val fidelity = if (hits + misses == 0) {
       0
