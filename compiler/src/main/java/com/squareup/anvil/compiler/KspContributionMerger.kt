@@ -219,7 +219,7 @@ internal class KspContributionMerger(
         }
       }
       .mapNotNull { annotated ->
-        logTimed("Merging ${annotated.qualifiedName?.asString()}") {
+        logTimed("Merging ${annotated.simpleName.asString()}") {
           processClass(
             resolver,
             annotated,
@@ -264,7 +264,7 @@ internal class KspContributionMerger(
     // Note this must be computed after contributed interfaces are computed as we need to account
     // for contributed parent component interfaces too.
     val (contributedInterfaces, directMergeSubcomponents) = logTimed(
-      "Finding contributed interfaces for ${mergeAnnotatedClass.qualifiedName?.asString()}",
+      "Finding all contributed interfaces for ${mergeAnnotatedClass.simpleName.asString()}",
     ) {
       findContributedInterfaces(
         resolver,
@@ -284,7 +284,7 @@ internal class KspContributionMerger(
 
     val daggerAnnotation = daggerMergeAnnotations.ifNotEmpty {
       logTimed(
-        "Generating merged Dagger annotation for ${mergeAnnotatedClass.qualifiedName?.asString()}",
+        "Generating merged Dagger annotation for ${mergeAnnotatedClass.simpleName.asString()}",
       ) {
         generateDaggerAnnotation(
           annotations = daggerMergeAnnotations,
