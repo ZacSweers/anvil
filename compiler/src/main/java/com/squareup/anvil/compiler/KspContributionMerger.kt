@@ -144,6 +144,10 @@ internal class KspContributionMerger(
     // contributesSubcomponentFqName is handled uniquely
   }.filterNotTo(mutableSetOf()) { it in MERGE_ANNOTATION_NAMES }
 
+  override fun finish() {
+    classScanner.dumpStats()
+  }
+
   override fun processChecked(
     resolver: Resolver,
   ): List<KSAnnotated> {
