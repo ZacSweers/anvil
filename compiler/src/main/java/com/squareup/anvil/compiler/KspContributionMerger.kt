@@ -458,7 +458,6 @@ internal class KspContributionMerger(
         val scope = annotation.scope()
         classScanner
           .findContributedClasses(
-            resolver = resolver,
             annotation = contributesToFqName,
             scope = scope,
           )
@@ -747,7 +746,6 @@ internal class KspContributionMerger(
           val scope = annotation.scope()
           classScanner
             .findContributedClasses(
-              resolver = resolver,
               annotation = contributesToFqName,
               scope = scope,
             )
@@ -1292,7 +1290,6 @@ internal class KspContributionMerger(
   ): Sequence<ClassName> {
     return classScanner
       .findContributedClasses(
-        resolver = resolver,
         annotation = contributesSubcomponentFqName,
         scope = null,
       )
@@ -1431,7 +1428,6 @@ internal class KspContributionMerger(
   ): Sequence<ClassName> {
     return classScanner
       .findContributedClasses(
-        resolver = resolver,
         annotation = contributesSubcomponentFqName,
         scope = null,
       )

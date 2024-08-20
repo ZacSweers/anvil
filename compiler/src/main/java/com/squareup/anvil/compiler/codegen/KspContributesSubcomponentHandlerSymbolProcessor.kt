@@ -258,7 +258,7 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
     // TODO move this to only if there's triggers?
     if (hasComputedInitialContributions) {
       hasComputedInitialContributions = false
-      populateInitialContributions(resolver)
+      populateInitialContributions()
     }
 
     // Find new @MergeComponent (and similar triggers) that would cause generating new code.
@@ -414,12 +414,11 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
     }
   }
 
-  private fun populateInitialContributions(resolver: Resolver) {
+  private fun populateInitialContributions() {
     // Find all contributed subcomponents from precompiled dependencies and generate the
     // necessary code eventually if there's a trigger.
     contributions += classScanner
       .findContributedClasses(
-        resolver = resolver,
         annotation = contributesSubcomponentFqName,
         scope = null,
       )

@@ -69,7 +69,7 @@ internal class ClassScannerKsp(
     if (roundStarted) return
     roundStarted = true
     hintCacheWarmer = {
-      hintCache += trace("Warming hint cache") {
+      _hintCache += trace("Warming hint cache") {
         resolver.getDeclarationsFromPackage(HINT_PACKAGE)
           .filterIsInstance<KSPropertyDeclaration>()
           .mapNotNull(GeneratedProperty::from)
@@ -86,10 +86,8 @@ internal class ClassScannerKsp(
     generatedPropertyCache.clear()
   }
 
-  @OptIn(KspExperimental::class)
   private fun getGeneratedProperties(
-    resolver: Resolver,
-    annotation: FqName,
+    annotation: FqName
   ): Collection<List<GeneratedProperty>> {
     // Don't use getOrPut so we can skip the intermediate re-materialization step when we have a miss
     return if (annotation in generatedPropertyCache) {
@@ -100,11 +98,8 @@ internal class ClassScannerKsp(
     } else {
       generatedPropertyCache.miss()
       trace("Computing property groups for ${annotation.shortName().asString()}") {
-        resolver.getDeclarationsFromPackage(HINT_PACKAGE)
-          .filterIsInstance<KSPropertyDeclaration>()
-          .mapNotNull(GeneratedProperty::from)
-          .groupBy(GeneratedProperty::baseName)
-          .values
+        // TODO can we optimize this further?
+        hintCache.values
       }
     }
   }
@@ -114,12 +109,10 @@ internal class ClassScannerKsp(
    * includes inner classes already.
    */
   fun findContributedClasses(
-    resolver: Resolver,
     annotation: FqName,
     scope: KSType?,
   ): Sequence<KSClassDeclaration> {
-    val propertyGroups: Collection<List<GeneratedProperty>> =
-      getGeneratedProperties(resolver, annotation)
+    val propertyGroups: Collection<List<GeneratedProperty>> = getGeneratedProperties(annotation)
 
     return trace("Processing contributed classes for ${annotation.shortName().asString()}") {
       propertyGroups
