@@ -1,5 +1,7 @@
 package com.squareup.anvil.compiler
 
+import kotlin.math.roundToInt
+
 internal class RecordingCache<K, V>(private val name: String) {
   val cache: MutableMap<K, V> = mutableMapOf()
   private var hits = 0
@@ -30,12 +32,17 @@ internal class RecordingCache<K, V>(private val name: String) {
   }
 
   fun statsString(): String {
+    val fidelity = if (hits + misses == 0) {
+      0
+    } else {
+      ((hits.toDouble() / (hits + misses)) * 100).roundToInt()
+    }
     return """
       $name Cache
         Size:     ${cache.size}
         Hits:     $hits
         Misses:   $misses
-        Fidelity: ${(hits.toDouble() / (hits + misses)) * 100}%
+        Fidelity: ${fidelity}%
     """.trimIndent()
   }
 }
