@@ -16,6 +16,7 @@ import com.squareup.anvil.compiler.ClassScannerKsp.GeneratedProperty.ScopeProper
 import com.squareup.anvil.compiler.api.AnvilCompilationException
 import com.squareup.anvil.compiler.codegen.ksp.KSCallable
 import com.squareup.anvil.compiler.codegen.ksp.KspAnvilException
+import com.squareup.anvil.compiler.codegen.ksp.KspTracer
 import com.squareup.anvil.compiler.codegen.ksp.contextualToClassName
 import com.squareup.anvil.compiler.codegen.ksp.fqName
 import com.squareup.anvil.compiler.codegen.ksp.getAllCallables
@@ -24,11 +25,13 @@ import com.squareup.anvil.compiler.codegen.ksp.isInterface
 import com.squareup.anvil.compiler.codegen.ksp.resolvableAnnotations
 import com.squareup.anvil.compiler.codegen.ksp.resolveKSClassDeclaration
 import com.squareup.anvil.compiler.codegen.ksp.scope
+import com.squareup.anvil.compiler.codegen.ksp.trace
 import com.squareup.anvil.compiler.codegen.ksp.type
 import org.jetbrains.kotlin.name.FqName
 
-internal class ClassScannerKsp {
-
+internal class ClassScannerKsp(
+  tracer: KspTracer,
+) : KspTracer by tracer {
   private val generatedPropertyCache =
     mutableMapOf<CacheKey, Collection<List<GeneratedProperty.CacheEntry>>>()
   private val parentComponentCache = mutableMapOf<FqName, FqName?>()
@@ -61,13 +64,16 @@ internal class ClassScannerKsp {
     scope: KSType?,
   ): Sequence<KSClassDeclaration> {
     val propertyGroups: Collection<List<GeneratedProperty>> =
+      // TODO can we skip the intermediate materialize step?
       generatedPropertyCache.getOrPut(CacheKey(annotation, resolver.hashCode())) {
-        resolver.getDeclarationsFromPackage(HINT_PACKAGE)
-          .filterIsInstance<KSPropertyDeclaration>()
-          .mapNotNull(GeneratedProperty::from)
-          .groupBy(GeneratedProperty::baseName)
-          .values
-          .map { it.map(GeneratedProperty::toCacheEntry) }
+        trace("Computing property groups for ${annotation.shortName()}") {
+          resolver.getDeclarationsFromPackage(HINT_PACKAGE)
+            .filterIsInstance<KSPropertyDeclaration>()
+            .mapNotNull(GeneratedProperty::from)
+            .groupBy(GeneratedProperty::baseName)
+            .values
+            .map { it.map(GeneratedProperty::toCacheEntry) }
+        }
       }.map { it.map { it.materialize(resolver) } }
 
     return propertyGroups
@@ -181,6 +187,7 @@ internal class ClassScannerKsp {
 
   private data class CacheKey(
     val fqName: FqName,
+    // TODO Is this still necessary now that we don't preserve symbols?
     val resolverHash: Int,
   )
 
@@ -192,7 +199,9 @@ internal class ClassScannerKsp {
     componentClass: KSClassDeclaration,
     creatorClass: KSClassDeclaration?,
     parentScopeType: KSType?,
-  ): KSClassDeclaration? {
+  ): KSClassDeclaration? = trace(
+    "Finding parent component interface for ${componentClass.simpleName.asString()}",
+  ) {
     val fqName = componentClass.fqName
 
     // Can't use getOrPut because it doesn't differentiate between absent and null
@@ -222,12 +231,14 @@ internal class ClassScannerKsp {
       )
     }
 
-    val callables = overridableParentComponentCallables(
-      resolver,
-      componentInterface,
-      componentClass.fqName,
-      creatorClass?.fqName,
-    )
+    val callables = trace("Finding overridable parent component callables") {
+      overridableParentComponentCallables(
+        resolver,
+        componentInterface,
+        componentClass.fqName,
+        creatorClass?.fqName,
+      )
+    }
 
     when (callables.count()) {
       0 -> return null // TODO cache

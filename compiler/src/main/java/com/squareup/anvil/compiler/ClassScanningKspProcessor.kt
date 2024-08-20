@@ -12,6 +12,7 @@ import com.squareup.anvil.compiler.api.ComponentMergingBackend
 import com.squareup.anvil.compiler.codegen.KspContributesSubcomponentHandlerSymbolProcessor
 import com.squareup.anvil.compiler.codegen.ksp.AnvilSymbolProcessor
 import com.squareup.anvil.compiler.codegen.ksp.AnvilSymbolProcessorProvider
+import com.squareup.anvil.compiler.codegen.ksp.KspTracerImpl
 import com.squareup.anvil.compiler.codegen.toAnvilContext
 import java.util.ServiceLoader
 
@@ -36,7 +37,7 @@ internal class ClassScanningKspProcessor(
       val context = env.toAnvilContext()
 
       // Shared caching class scanner for both processors
-      val classScanner = ClassScannerKsp()
+      val classScanner = ClassScannerKsp(KspTracerImpl(env, "ClassScannerKsp"))
 
       // Extensions to run
       val extensions = extensions(env, context)
