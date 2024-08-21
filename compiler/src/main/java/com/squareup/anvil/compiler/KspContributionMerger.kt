@@ -1425,7 +1425,7 @@ internal class KspContributionMerger(
     clazz: KSClassDeclaration,
     scopes: Set<KSType>,
     resolver: Resolver,
-  ): Sequence<ClassName> {
+  ): Sequence<ClassName> = trace("Finding contributed subcomponent parent interfaces") {
     return classScanner
       .findContributedClasses(
         annotation = contributesSubcomponentFqName,
