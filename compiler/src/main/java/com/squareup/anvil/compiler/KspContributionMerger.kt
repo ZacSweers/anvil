@@ -163,9 +163,10 @@ internal class KspContributionMerger(
   ): List<KSAnnotated> {
     // If there's any remaining `@Contributes*` or custom contributing annotated symbols, defer to
     // a later round
-    val contributingAnnotations = resolver.getSymbolsWithAnnotations(allContributingAnnotations)
-
-    var shouldDefer = contributingAnnotations.any()
+    var shouldDefer = trace("Checking for contributing annotations") {
+      resolver.getSymbolsWithAnnotations(allContributingAnnotations)
+        .any()
+    }
 
     val deferredByExtensions = mutableListOf<KSAnnotated>()
     for (extension in extensions) {
@@ -184,46 +185,53 @@ internal class KspContributionMerger(
     // Mapping of scopes to contributing modules in this round
     val contributedModulesInRound = mutableMapOf<KSType, MutableList<KSClassDeclaration>>()
 
-    resolver.getSymbolsWithAnnotations(contributesToFqName)
-      .filterIsInstance<KSClassDeclaration>()
-      .forEach { contributedTypeInRound ->
-        val contributesToScopes =
-          contributedTypeInRound.getKSAnnotationsByType(ContributesTo::class)
-            .map(KSAnnotation::scope)
-            .toSet()
-        if (contributesToScopes.isNotEmpty()) {
-          val isModule = contributedTypeInRound.isAnnotationPresent<Module>() ||
-            contributedTypeInRound.isAnnotationPresent<MergeModules>()
-          if (isModule) {
-            for (scope in contributesToScopes) {
-              contributedModulesInRound.getOrPut(scope, ::mutableListOf)
-                .add(contributedTypeInRound)
+    trace("Finding in-round contributions") {
+      resolver.getSymbolsWithAnnotations(contributesToFqName)
+        .filterIsInstance<KSClassDeclaration>()
+        .forEach { contributedTypeInRound ->
+          val contributesToScopes =
+            contributedTypeInRound.getKSAnnotationsByType(ContributesTo::class)
+              .map(KSAnnotation::scope)
+              .toSet()
+          if (contributesToScopes.isNotEmpty()) {
+            val isModule = contributedTypeInRound.isAnnotationPresent<Module>() ||
+              contributedTypeInRound.isAnnotationPresent<MergeModules>()
+            if (isModule) {
+              for (scope in contributesToScopes) {
+                contributedModulesInRound.getOrPut(scope, ::mutableListOf)
+                  .add(contributedTypeInRound)
+              }
+              return@forEach
             }
-            return@forEach
-          }
 
-          if (contributedTypeInRound.isInterface()) {
-            for (scope in contributesToScopes) {
-              contributedInterfacesInRound.getOrPut(scope, ::mutableListOf)
-                .add(contributedTypeInRound)
+            if (contributedTypeInRound.isInterface()) {
+              for (scope in contributesToScopes) {
+                contributedInterfacesInRound.getOrPut(scope, ::mutableListOf)
+                  .add(contributedTypeInRound)
+              }
             }
           }
         }
-      }
+    }
 
-    val mergeModuleTypes = resolver.getSymbolsWithAnnotation(mergeModulesFqName.asString())
-      .filterIsInstance<KSClassDeclaration>()
-      .toList()
+    val mergeModuleTypes = trace("Finding MergeModules") {
+      resolver.getSymbolsWithAnnotation(mergeModulesFqName.asString())
+        .filterIsInstance<KSClassDeclaration>()
+        .toList()
+    }
 
-    val commonMergeAnnotatedTypes =
+    val commonMergeAnnotatedTypes = trace("Finding common merge-annotated types") {
       resolver.getSymbolsWithAnnotations(COMMON_MERGE_ANNOTATION_NAMES)
         .filterIsInstance<KSClassDeclaration>()
         .toList()
+    }
 
-    val mergeAnnotatedTypes = (commonMergeAnnotatedTypes + mergeModuleTypes)
-      .validate { deferred ->
-        return deferred + deferredByExtensions
-      }
+    val mergeAnnotatedTypes = trace("Validating merge-annotated types") {
+      (commonMergeAnnotatedTypes + mergeModuleTypes)
+        .validate { deferred ->
+          return deferred + deferredByExtensions
+        }
+    }
 
     if (commonMergeAnnotatedTypes.isNotEmpty()) {
       if (!shouldDefer) {
@@ -265,7 +273,7 @@ internal class KspContributionMerger(
     mergeAnnotatedClass: KSClassDeclaration,
     contributedInterfacesInRound: Map<KSType, List<KSClassDeclaration>>,
     contributedModulesInRound: Map<KSType, List<KSClassDeclaration>>,
-  ): KSAnnotated? {
+  ): KSAnnotated? = trace("Processing ${mergeAnnotatedClass.simpleName.asString()}") {
     val mergeComponentAnnotations = mergeAnnotatedClass
       .findAll(mergeComponentFqName.asString(), mergeSubcomponentFqName.asString())
 
