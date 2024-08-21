@@ -3,6 +3,9 @@
 **Unreleased**
 --------------
 
+- Significantly improve performance during component merging.
+- Add a new `anvil-ksp-verbose` KSP option to enable verbose logging, such as timing information.
+
 0.2.5
 -----
 
