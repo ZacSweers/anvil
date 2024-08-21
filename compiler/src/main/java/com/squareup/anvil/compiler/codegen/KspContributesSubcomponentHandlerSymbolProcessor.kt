@@ -276,15 +276,21 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
 
     // Find new contributed subcomponents in this module. If there's a trigger for them, then we
     // also need to generate code for them later.
-    contributions += resolver.getSymbolsWithAnnotations(contributesSubcomponentFqName)
-      // Factory in previous rounds' contributions too
-      .plus(previousRoundContributionClasses.map(resolver::getClassDeclarationByName))
-      .filterIsInstance<KSClassDeclaration>()
-      .distinctBy { it.qualifiedName?.asString() }
-      .map {
-        val annotation = it.find(contributesSubcomponentFqName.asString()).single()
-        Contribution(annotation)
-      }
+    contributions += trace("Compute contributions") {
+      resolver.getSymbolsWithAnnotations(contributesSubcomponentFqName)
+        .filterIsInstance<KSClassDeclaration>()
+        // Factory in previous rounds' contributions too
+        .plus(
+          trace("Loading previous contributions") {
+            previousRoundContributionClasses.mapNotNull(resolver::getClassDeclarationByName)
+          }
+        )
+        .distinctBy { it.qualifiedName?.asString() }
+        .map {
+          val annotation = it.find(contributesSubcomponentFqName.asString()).single()
+          Contribution(annotation)
+        }
+    }
 
     // Find all replaced subcomponents and remember them.
     replacedReferences += contributions
