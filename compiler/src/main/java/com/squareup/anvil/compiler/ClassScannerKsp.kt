@@ -79,7 +79,7 @@ internal class ClassScannerKsp(
   }
 
   fun endRound() {
-    hintCache.clear()
+    _hintCache.clear()
     hintCacheWarmer = null
     roundStarted = false
     log(generatedPropertyCache.statsString())
