@@ -35,6 +35,7 @@ import com.squareup.anvil.compiler.codegen.generatedAnvilSubcomponentClassId
 import com.squareup.anvil.compiler.codegen.ksp.AnvilSymbolProcessor
 import com.squareup.anvil.compiler.codegen.ksp.KSCallable
 import com.squareup.anvil.compiler.codegen.ksp.KspAnvilException
+import com.squareup.anvil.compiler.codegen.ksp.anySymbolsWithAnnotations
 import com.squareup.anvil.compiler.codegen.ksp.argumentOfTypeAt
 import com.squareup.anvil.compiler.codegen.ksp.atLeastOneAnnotation
 import com.squareup.anvil.compiler.codegen.ksp.classId
@@ -48,8 +49,8 @@ import com.squareup.anvil.compiler.codegen.ksp.find
 import com.squareup.anvil.compiler.codegen.ksp.findAll
 import com.squareup.anvil.compiler.codegen.ksp.fqName
 import com.squareup.anvil.compiler.codegen.ksp.getAllCallables
+import com.squareup.anvil.compiler.codegen.ksp.getClassesWithAnnotations
 import com.squareup.anvil.compiler.codegen.ksp.getKSAnnotationsByType
-import com.squareup.anvil.compiler.codegen.ksp.getSymbolsWithAnnotations
 import com.squareup.anvil.compiler.codegen.ksp.includes
 import com.squareup.anvil.compiler.codegen.ksp.isAbstract
 import com.squareup.anvil.compiler.codegen.ksp.isAnnotationPresent
@@ -164,8 +165,7 @@ internal class KspContributionMerger(
     // If there's any remaining `@Contributes*` or custom contributing annotated symbols, defer to
     // a later round
     var shouldDefer = trace("Checking for contributing annotations") {
-      resolver.getSymbolsWithAnnotations(allContributingAnnotations)
-        .any()
+      resolver.anySymbolsWithAnnotations(allContributingAnnotations)
     }
 
     val deferredByExtensions = mutableListOf<KSAnnotated>()
@@ -186,8 +186,7 @@ internal class KspContributionMerger(
     val contributedModulesInRound = mutableMapOf<KSType, MutableList<KSClassDeclaration>>()
 
     trace("Finding in-round contributions") {
-      resolver.getSymbolsWithAnnotations(contributesToFqName)
-        .filterIsInstance<KSClassDeclaration>()
+      resolver.getClassesWithAnnotations(contributesToFqName)
         .forEach { contributedTypeInRound ->
           val contributesToScopes =
             contributedTypeInRound.getKSAnnotationsByType(ContributesTo::class)
@@ -221,8 +220,7 @@ internal class KspContributionMerger(
     }
 
     val commonMergeAnnotatedTypes = trace("Finding common merge-annotated types") {
-      resolver.getSymbolsWithAnnotations(COMMON_MERGE_ANNOTATION_NAMES)
-        .filterIsInstance<KSClassDeclaration>()
+      resolver.getClassesWithAnnotations(COMMON_MERGE_ANNOTATION_NAMES)
         .toList()
     }
 

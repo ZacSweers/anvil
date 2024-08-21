@@ -37,6 +37,6 @@ internal inline fun <T> KspTracer.trace(message: String, block: () -> T): T {
   } else {
     ""
   }
-  log("$prefix$message took ${duration.inWholeMilliseconds}ms")
+  log("$prefix$message took ${durationMs}ms")
   return result
 }

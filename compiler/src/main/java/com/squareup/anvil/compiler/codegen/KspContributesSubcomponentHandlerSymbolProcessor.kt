@@ -26,7 +26,7 @@ import com.squareup.anvil.compiler.codegen.ksp.declaringClass
 import com.squareup.anvil.compiler.codegen.ksp.exclude
 import com.squareup.anvil.compiler.codegen.ksp.find
 import com.squareup.anvil.compiler.codegen.ksp.fqName
-import com.squareup.anvil.compiler.codegen.ksp.getSymbolsWithAnnotations
+import com.squareup.anvil.compiler.codegen.ksp.getClassesWithAnnotations
 import com.squareup.anvil.compiler.codegen.ksp.isAnnotationPresent
 import com.squareup.anvil.compiler.codegen.ksp.isDaggerScope
 import com.squareup.anvil.compiler.codegen.ksp.isInterface
@@ -279,13 +279,12 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
     // Find new contributed subcomponents in this module. If there's a trigger for them, then we
     // also need to generate code for them later.
     contributions += trace("Compute contributions") {
-      resolver.getSymbolsWithAnnotations(contributesSubcomponentFqName)
-        .filterIsInstance<KSClassDeclaration>()
+      resolver.getClassesWithAnnotations(contributesSubcomponentFqName)
         // Factory in previous rounds' contributions too
         .plus(
           trace("Loading previous contributions") {
             previousRoundContributionClasses.mapNotNull(resolver::getClassDeclarationByName)
-          }
+          },
         )
         .distinctBy { it.qualifiedName?.asString() }
         .map {
