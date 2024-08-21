@@ -102,7 +102,7 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
   private val processedEventHashes = mutableSetOf<Int>()
   private val processedContributionClasses = mutableSetOf<ClassName>()
 
-  private var hasComputedInitialContributions = true
+  private var hasComputedInitialContributions = false
   private var hasComputedEventsThisRound = false
   private val pendingEvents = mutableListOf<GenerateCodeEvent>()
 
