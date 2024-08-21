@@ -106,6 +106,16 @@ private val MERGE_ANNOTATION_NAMES = setOf(
 )
 
 /**
+ * Common Merge* types that are used in both [KspContributionMerger] and
+ * [KspContributesSubcomponentHandlerSymbolProcessor].
+ */
+private val COMMON_MERGE_ANNOTATION_NAMES = setOf(
+  mergeComponentFqName.asString(),
+  mergeSubcomponentFqName.asString(),
+  mergeInterfacesFqName.asString(),
+)
+
+/**
  * A [com.google.devtools.ksp.processing.SymbolProcessor] that performs the two types of merging
  * Anvil supports.
  *
@@ -157,18 +167,6 @@ internal class KspContributionMerger(
 
     var shouldDefer = contributingAnnotations.any()
 
-    if (!shouldDefer) {
-      // If any @InternalContributedSubcomponentMarker-annotated classes are generated with
-      // parent scopes, we need to defer one more round to let their code gen happen if they haven't
-      // generated their contributed subcomponents yet.
-      contributesSubcomponentHandler.computePendingEvents(resolver)
-      if (contributesSubcomponentHandler.hasPendingEvents()) {
-        shouldDefer = true
-      }
-    }
-
-    contributesSubcomponentHandler.process(resolver)
-
     val deferredByExtensions = mutableListOf<KSAnnotated>()
     for (extension in extensions) {
       deferredByExtensions += extension.process(resolver)
@@ -213,16 +211,38 @@ internal class KspContributionMerger(
         }
       }
 
-    val deferred = resolver.getSymbolsWithAnnotations(MERGE_ANNOTATION_NAMES)
+    val mergeModuleTypes = resolver.getSymbolsWithAnnotation(mergeModulesFqName.asString())
       .filterIsInstance<KSClassDeclaration>()
+      .toList()
+
+    val commonMergeAnnotatedTypes =
+      resolver.getSymbolsWithAnnotations(COMMON_MERGE_ANNOTATION_NAMES)
+        .filterIsInstance<KSClassDeclaration>()
+        .toList()
+
+    val mergeAnnotatedTypes = (commonMergeAnnotatedTypes + mergeModuleTypes)
       .validate { deferred ->
         return deferred + deferredByExtensions
       }
-      .also { mergeAnnotatedTypes ->
-        if (shouldDefer) {
-          return mergeAnnotatedTypes + deferredByExtensions
+
+    if (commonMergeAnnotatedTypes.isNotEmpty()) {
+      if (!shouldDefer) {
+        // If any @InternalContributedSubcomponentMarker-annotated classes are generated with
+        // parent scopes, we need to defer one more round to let their code gen happen if they haven't
+        // generated their contributed subcomponents yet.
+        contributesSubcomponentHandler.computePendingEvents(resolver)
+        if (contributesSubcomponentHandler.hasPendingEvents()) {
+          shouldDefer = true
         }
+        contributesSubcomponentHandler.process(resolver)
       }
+    }
+
+    if (shouldDefer) {
+      return mergeAnnotatedTypes + deferredByExtensions
+    }
+
+    val deferred = mergeAnnotatedTypes
       .mapNotNull { annotated ->
         trace("Merging ${annotated.simpleName.asString()}") {
           processClass(
@@ -1253,7 +1273,7 @@ internal class KspContributionMerger(
     spec.writeTo(env.codeGenerator, aggregating = true)
   }
 
-  private inline fun Sequence<KSClassDeclaration>.validate(
+  private inline fun List<KSClassDeclaration>.validate(
     escape: (List<KSClassDeclaration>) -> Nothing,
   ): List<KSClassDeclaration> {
     val (valid, deferred) = partition { annotated ->
@@ -1572,7 +1592,7 @@ private fun Creator.extend(
     ClassKind.ENUM_ENTRY,
     ClassKind.OBJECT,
     ClassKind.ANNOTATION_CLASS,
-    -> throw KspAnvilException(
+      -> throw KspAnvilException(
       node = declaration,
       message = "Unsupported class kind: ${declaration.classKind}",
     )
