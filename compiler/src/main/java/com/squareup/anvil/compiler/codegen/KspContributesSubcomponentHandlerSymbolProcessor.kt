@@ -37,6 +37,7 @@ import com.squareup.anvil.compiler.codegen.ksp.resolvableAnnotations
 import com.squareup.anvil.compiler.codegen.ksp.resolveKSClassDeclaration
 import com.squareup.anvil.compiler.codegen.ksp.returnTypeOrNull
 import com.squareup.anvil.compiler.codegen.ksp.scope
+import com.squareup.anvil.compiler.codegen.ksp.trace
 import com.squareup.anvil.compiler.contributesSubcomponentFqName
 import com.squareup.anvil.compiler.daggerBindingModuleSpec
 import com.squareup.anvil.compiler.defaultParentComponentFunctionName
@@ -255,12 +256,6 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
       hasComputedEventsThisRound = true
     }
 
-    // TODO move this to only if there's triggers?
-    if (hasComputedInitialContributions) {
-      hasComputedInitialContributions = false
-      populateInitialContributions()
-    }
-
     // Find new @MergeComponent (and similar triggers) that would cause generating new code.
     triggers += generationTriggers
       .flatMap { generationTrigger ->
@@ -273,6 +268,11 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
               }
           }
       }
+
+    if (triggers.isNotEmpty() && !hasComputedInitialContributions) {
+      hasComputedInitialContributions = true
+      populateInitialContributions()
+    }
 
     // Find new contributed subcomponents in this module. If there's a trigger for them, then we
     // also need to generate code for them later.
@@ -414,7 +414,7 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
     }
   }
 
-  private fun populateInitialContributions() {
+  private fun populateInitialContributions() = trace("Populate initial contributions") {
     // Find all contributed subcomponents from precompiled dependencies and generate the
     // necessary code eventually if there's a trigger.
     contributions += classScanner
