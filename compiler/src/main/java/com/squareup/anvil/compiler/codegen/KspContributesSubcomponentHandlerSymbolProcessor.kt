@@ -257,17 +257,19 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
     }
 
     // Find new @MergeComponent (and similar triggers) that would cause generating new code.
-    triggers += generationTriggers
-      .flatMap { generationTrigger ->
-        resolver.getSymbolsWithAnnotation(generationTrigger.asString())
-          .filterIsInstance<KSClassDeclaration>()
-          .flatMap { annotatedClass ->
-            annotatedClass.find(generationTrigger.asString())
-              .map { annotation ->
-                Trigger(annotatedClass, annotation.scope(), annotation.exclude().toSet())
-              }
-          }
-      }
+    triggers += trace("Computing triggers") {
+      generationTriggers
+        .flatMap { generationTrigger ->
+          resolver.getSymbolsWithAnnotation(generationTrigger.asString())
+            .filterIsInstance<KSClassDeclaration>()
+            .flatMap { annotatedClass ->
+              annotatedClass.find(generationTrigger.asString())
+                .map { annotation ->
+                  Trigger(annotatedClass, annotation.scope(), annotation.exclude().toSet())
+                }
+            }
+        }
+    }
 
     if (triggers.isNotEmpty() && !hasComputedInitialContributions) {
       hasComputedInitialContributions = true
