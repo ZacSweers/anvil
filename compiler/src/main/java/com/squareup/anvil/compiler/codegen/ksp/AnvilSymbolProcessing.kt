@@ -41,6 +41,7 @@ internal abstract class AnvilSymbolProcessor : SymbolProcessor, KspTracer {
 
   final override fun process(resolver: Resolver): List<KSAnnotated> {
     round++
+    log("Starting round $round")
     val (result, duration) = measureTimedValue {
       runInternal(resolver)
     }
