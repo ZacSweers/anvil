@@ -248,7 +248,7 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
    * This is exposed internally for access in [KspContributionMerger], which may be running this
    * processor in an encapsulated fashion.
    */
-  fun computePendingEvents(resolver: Resolver) {
+  fun computePendingEvents(resolver: Resolver) = trace("Compute pending events") {
     if (hasComputedEventsThisRound) {
       // Already computed this round
       return
