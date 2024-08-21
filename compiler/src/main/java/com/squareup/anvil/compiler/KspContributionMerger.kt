@@ -712,6 +712,7 @@ internal class KspContributionMerger(
         .plus(contributedSubcomponentModules)
         .plus(directMergedSubcomponentModules)
         .distinct()
+        .sortedBy { it.canonicalName }
         .toList()
     }
 
@@ -955,6 +956,7 @@ internal class KspContributionMerger(
         )
         // Avoids an error for repeated interfaces.
         .distinct()
+        .sortedBy { it.canonicalName }
         .toList()
     }
 
@@ -1043,9 +1045,10 @@ internal class KspContributionMerger(
 
         daggerAnnotation?.let(::addAnnotation)
 
-        contributedInterfaces.forEach(::addSuperinterface)
+        contributedInterfaces.sortedBy(ClassName::canonicalName)
+          .forEach(::addSuperinterface)
 
-        for ((declaration, returnType, targetOrigin, creatorClass) in directMergeSubcomponents) {
+        for ((declaration, returnType, targetOrigin, creatorClass) in directMergeSubcomponents.sortedBy { it.targetType }) {
           // This is only relevant for creator-less subcomponents
           if (creatorClass != null) continue
 
