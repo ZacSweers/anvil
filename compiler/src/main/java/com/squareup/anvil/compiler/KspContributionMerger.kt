@@ -1048,7 +1048,9 @@ internal class KspContributionMerger(
         contributedInterfaces.sortedBy(ClassName::canonicalName)
           .forEach(::addSuperinterface)
 
-        for ((declaration, returnType, targetOrigin, creatorClass) in directMergeSubcomponents.sortedBy { it.targetType }) {
+        for ((declaration, returnType, targetOrigin, creatorClass) in directMergeSubcomponents.sortedBy {
+          it.targetType
+        }) {
           // This is only relevant for creator-less subcomponents
           if (creatorClass != null) continue
 
@@ -1603,7 +1605,7 @@ private fun Creator.extend(
     ClassKind.ENUM_ENTRY,
     ClassKind.OBJECT,
     ClassKind.ANNOTATION_CLASS,
-      -> throw KspAnvilException(
+    -> throw KspAnvilException(
       node = declaration,
       message = "Unsupported class kind: ${declaration.classKind}",
     )
