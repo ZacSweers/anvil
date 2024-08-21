@@ -239,8 +239,8 @@ internal class KspContributionMerger(
         contributesSubcomponentHandler.computePendingEvents(resolver)
         if (contributesSubcomponentHandler.hasPendingEvents()) {
           shouldDefer = true
+          contributesSubcomponentHandler.process(resolver)
         }
-        contributesSubcomponentHandler.process(resolver)
       }
     }
 
@@ -1400,9 +1400,11 @@ internal class KspContributionMerger(
     contributedInterfaces: List<ClassName>,
   ): List<DirectMergedSubcomponent> {
     val contributedCallables =
-      contributedInterfaces.asSequence().mapNotNull { contributedInterface ->
-        resolver.getClassDeclarationByName(contributedInterface.canonicalName)
-      }.flatMap { it.getAllCallables() }
+      contributedInterfaces.asSequence()
+        .mapNotNull { contributedInterface ->
+          resolver.getClassDeclarationByName(contributedInterface.canonicalName)
+        }
+        .flatMap { it.getAllCallables() }
     return (mergeAnnotatedComponent.getAllCallables() + contributedCallables)
       // Filter out hashcode/equals/toString
       // .filterNot { it.originalDeclaration.parentDeclaration == resolver.builtIns.anyType.declaration }
