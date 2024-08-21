@@ -31,8 +31,8 @@ import org.jetbrains.kotlin.name.FqName
 internal class ClassScannerKsp(
   tracer: KspTracer,
 ) : KspTracer by tracer {
-  private val _hintCache =
-    RecordingCache<FqName, Map<KSType, ContributedType>>("Generated Property")
+  private val generatedPropertyCache =
+    RecordingCache<FqName, Collection<List<GeneratedProperty>>>("Generated Property")
 
   private val parentComponentCache = RecordingCache<FqName, FqName?>("ParentComponent")
 
@@ -55,7 +55,8 @@ internal class ClassScannerKsp(
   }
 
   private var hintCacheWarmer: (() -> Unit)? = null
-  private val hintCache: RecordingCache<FqName, Map<KSType, ContributedType>>
+  private val _hintCache = mutableMapOf<String, List<GeneratedProperty>>()
+  private val hintCache: MutableMap<String, List<GeneratedProperty>>
     get() {
       hintCacheWarmer?.invoke()
       hintCacheWarmer = null
@@ -63,77 +64,44 @@ internal class ClassScannerKsp(
     }
   private var roundStarted = false
 
+  @OptIn(KspExperimental::class)
   fun startRound(resolver: Resolver) {
     if (roundStarted) return
     roundStarted = true
     hintCacheWarmer = {
       _hintCache += trace("Warming hint cache") {
-        generateHintCache(resolver)
+        resolver.getDeclarationsFromPackage(HINT_PACKAGE)
+          .filterIsInstance<KSPropertyDeclaration>()
+          .mapNotNull(GeneratedProperty::from)
+          .groupBy(GeneratedProperty::baseName)
       }
     }
   }
-
-  @OptIn(KspExperimental::class)
-  private fun generateHintCache(resolver: Resolver): Map<FqName, Map<KSType, ContributedType>> {
-    val contributedTypes = resolver.getDeclarationsFromPackage(HINT_PACKAGE)
-      .filterIsInstance<KSPropertyDeclaration>()
-      .mapNotNull(GeneratedProperty::from)
-      .groupBy(GeneratedProperty::baseName)
-      .map { (name, properties) ->
-        val refProp = properties.filterIsInstance<ReferenceProperty>()
-          // In some rare cases we can see a generated property for the same identifier.
-          // Filter them just in case, see https://github.com/square/anvil/issues/460 and
-          // https://github.com/square/anvil/issues/565
-          .distinctBy { it.baseName }
-          .singleOrEmpty()
-          ?: throw AnvilCompilationException(
-            message = "Couldn't find the reference for a generated hint: ${properties[0].baseName}.",
-          )
-
-        val scopes = properties.filterIsInstance<ScopeProperty>()
-          .ifEmpty {
-            throw AnvilCompilationException(
-              message = "Couldn't find any scope for a generated hint: ${properties[0].baseName}.",
-            )
-          }
-          .mapTo(mutableSetOf()) {
-            it.declaration.type.resolveKClassType()
-          }
-
-        ContributedType(
-          baseName = name,
-          reference = refProp.declaration.type
-            .resolveKClassType()
-            .resolveKSClassDeclaration()!!,
-          scopes = scopes,
-        )
-      }
-
-    val contributedTypesByAnnotation = mutableMapOf<FqName, Map<KSType, ContributedType>>()
-    for (contributed in contributedTypes) {
-      val byScope = contributed.scopes.associateWith { contributed }
-      contributed.reference.resolvableAnnotations
-        .forEach { annotation ->
-          val type = annotation.annotationType
-            .contextualToClassName().fqName
-          if (type !in CONTRIBUTION_ANNOTATIONS) return@forEach
-          contributedTypesByAnnotation[type] = byScope
-        }
-    }
-    return contributedTypesByAnnotation
-  }
-
-  data class ContributedType(
-    val baseName: String,
-    val reference: KSClassDeclaration,
-    val scopes: Set<KSType>,
-  )
 
   fun endRound() {
+    _hintCache.clear()
     hintCacheWarmer = null
     roundStarted = false
-    log(_hintCache.statsString())
-    _hintCache.clear()
+    log(generatedPropertyCache.statsString())
+    generatedPropertyCache.clear()
+  }
+
+  private fun getGeneratedProperties(
+    annotation: FqName,
+  ): Collection<List<GeneratedProperty>> {
+    // Don't use getOrPut so we can skip the intermediate re-materialization step when we have a miss
+    return if (annotation in generatedPropertyCache) {
+      generatedPropertyCache.hit()
+      trace("Materializing property groups cache hit for ${annotation.shortName().asString()}") {
+        generatedPropertyCache.getValue(annotation)
+      }
+    } else {
+      generatedPropertyCache.miss()
+      trace("Computing property groups for ${annotation.shortName().asString()}") {
+        // TODO can we optimize this further?
+        hintCache.values
+      }
+    }
   }
 
   /**
@@ -144,26 +112,54 @@ internal class ClassScannerKsp(
     annotation: FqName,
     scope: KSType?,
   ): Sequence<KSClassDeclaration> {
+    val propertyGroups: Collection<List<GeneratedProperty>> = getGeneratedProperties(annotation)
+
     return trace("Processing contributed classes for ${annotation.shortName().asString()}") {
-      val typesByScope = hintCache[annotation] ?: emptyMap()
-      typesByScope.filterKeys { scope == null || it == scope }
-        .values
+      propertyGroups
         .asSequence()
-        .map { it.reference }
-        .distinctBy { it.qualifiedName?.asString() }
+        .mapNotNull { properties ->
+          val reference = properties.filterIsInstance<ReferenceProperty>()
+            // In some rare cases we can see a generated property for the same identifier.
+            // Filter them just in case, see https://github.com/square/anvil/issues/460 and
+            // https://github.com/square/anvil/issues/565
+            .distinctBy { it.baseName }
+            .singleOrEmpty()
+            ?: throw AnvilCompilationException(
+              message = "Couldn't find the reference for a generated hint: ${properties[0].baseName}.",
+            )
+
+          val scopes = properties.filterIsInstance<ScopeProperty>()
+            .ifEmpty {
+              throw AnvilCompilationException(
+                message = "Couldn't find any scope for a generated hint: ${properties[0].baseName}.",
+              )
+            }
+            .map {
+              it.declaration.type.resolveKClassType()
+            }
+
+          // Look for the right scope even before resolving the class and resolving all its super
+          // types.
+          if (scope != null && scope !in scopes) return@mapNotNull null
+
+          reference.declaration.type
+            .resolveKClassType()
+            .resolveKSClassDeclaration()
+        }
+        .filter { clazz ->
+          // Check that the annotation really is present. It should always be the case, but it's
+          // a safety net in case the generated properties are out of sync.
+          clazz.resolvableAnnotations.any {
+            it.annotationType
+              .contextualToClassName().fqName == annotation && (scope == null || it.scope() == scope)
+          }
+        }
         .onEach { clazz ->
           if (clazz.origin == Origin.KOTLIN_LIB || clazz.origin == Origin.JAVA_LIB) {
             externalContributions.add(clazz.fqName)
           }
         }
     }
-  }
-
-  companion object {
-    private val CONTRIBUTION_ANNOTATIONS = setOf(
-      contributesToFqName,
-      contributesSubcomponentFqName,
-    )
   }
 
   private sealed class GeneratedProperty(

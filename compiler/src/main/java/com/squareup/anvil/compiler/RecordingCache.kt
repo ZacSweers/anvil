@@ -49,8 +49,4 @@ internal class RecordingCache<K, V>(private val name: String) {
         Fidelity: $fidelity%
     """.trimIndent()
   }
-
-  operator fun plusAssign(values: Map<K, V>) {
-    cache += values
-  }
 }
