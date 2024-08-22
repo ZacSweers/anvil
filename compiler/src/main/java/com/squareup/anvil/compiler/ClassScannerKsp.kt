@@ -32,7 +32,7 @@ internal class ClassScannerKsp(
   tracer: KspTracer,
 ) : KspTracer by tracer {
   private val _hintCache =
-    RecordingCache<FqName, Map<KSType, ContributedType>>("Generated Property")
+    RecordingCache<FqName, Map<KSType, Set<ContributedType>>>("Generated Property")
 
   private val parentComponentCache = RecordingCache<FqName, FqName?>("ParentComponent")
 
@@ -55,7 +55,7 @@ internal class ClassScannerKsp(
   }
 
   private var hintCacheWarmer: (() -> Unit)? = null
-  private val hintCache: RecordingCache<FqName, Map<KSType, ContributedType>>
+  private val hintCache: RecordingCache<FqName, Map<KSType, Set<ContributedType>>>
     get() {
       hintCacheWarmer?.invoke()
       hintCacheWarmer = null
@@ -74,7 +74,9 @@ internal class ClassScannerKsp(
   }
 
   @OptIn(KspExperimental::class)
-  private fun generateHintCache(resolver: Resolver): Map<FqName, Map<KSType, ContributedType>> {
+  private fun generateHintCache(
+    resolver: Resolver
+  ): MutableMap<FqName, MutableMap<KSType, MutableSet<ContributedType>>> {
     val contributedTypes = resolver.getDeclarationsFromPackage(HINT_PACKAGE)
       .filterIsInstance<KSPropertyDeclaration>()
       .mapNotNull(GeneratedProperty::from)
@@ -109,15 +111,19 @@ internal class ClassScannerKsp(
         )
       }
 
-    val contributedTypesByAnnotation = mutableMapOf<FqName, Map<KSType, ContributedType>>()
+    val contributedTypesByAnnotation =
+      mutableMapOf<FqName, MutableMap<KSType, MutableSet<ContributedType>>>()
     for (contributed in contributedTypes) {
-      val byScope = contributed.scopes.associateWith { contributed }
       contributed.reference.resolvableAnnotations
         .forEach { annotation ->
           val type = annotation.annotationType
             .contextualToClassName().fqName
           if (type !in CONTRIBUTION_ANNOTATIONS) return@forEach
-          contributedTypesByAnnotation[type] = byScope
+          for (scope in contributed.scopes) {
+            contributedTypesByAnnotation.getOrPut(type, ::mutableMapOf)
+              .getOrPut(scope, ::mutableSetOf)
+              .add(contributed)
+          }
         }
     }
     return contributedTypesByAnnotation
@@ -149,6 +155,7 @@ internal class ClassScannerKsp(
       typesByScope.filterKeys { scope == null || it == scope }
         .values
         .asSequence()
+        .flatten()
         .map { it.reference }
         .distinctBy { it.qualifiedName?.asString() }
         .onEach { clazz ->
