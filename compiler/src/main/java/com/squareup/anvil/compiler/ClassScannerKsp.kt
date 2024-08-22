@@ -75,7 +75,7 @@ internal class ClassScannerKsp(
 
   @OptIn(KspExperimental::class)
   private fun generateHintCache(
-    resolver: Resolver
+    resolver: Resolver,
   ): MutableMap<FqName, MutableMap<KSType, MutableSet<ContributedType>>> {
     val contributedTypes = resolver.getDeclarationsFromPackage(HINT_PACKAGE)
       .filterIsInstance<KSPropertyDeclaration>()
