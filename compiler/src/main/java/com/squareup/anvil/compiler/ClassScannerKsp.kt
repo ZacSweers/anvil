@@ -133,7 +133,7 @@ internal class ClassScannerKsp(
               message = "Couldn't find any scope for a generated hint: ${properties[0].baseName}.",
             )
           }
-          .mapTo(mutableSetOf()) {
+          .mapToSet {
             it.declaration.type.resolveKClassType()
               .contextualToClassName(it.declaration)
           }
@@ -214,18 +214,6 @@ internal class ClassScannerKsp(
     val contributedSubcomponentData: ContributedSubcomponentData?,
     val contributesToData: Set<ContributesToData>,
   ) {
-    // TODO do we need this
-    private val computedScopes: Set<ClassName> = buildSet {
-      contributesToData.forEach { add(it.scope) }
-      contributedSubcomponentData?.let { add(it.scope) }
-    }
-
-    init {
-      if (scopes != computedScopes) {
-        System.err.println("Inconsistent scopes detected on $this")
-      }
-    }
-
     data class ContributesToData(
       val scope: ClassName,
     )
