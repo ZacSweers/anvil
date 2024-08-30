@@ -26,13 +26,14 @@ import com.squareup.anvil.compiler.codegen.ksp.resolveKSClassDeclaration
 import com.squareup.anvil.compiler.codegen.ksp.scope
 import com.squareup.anvil.compiler.codegen.ksp.trace
 import com.squareup.anvil.compiler.codegen.ksp.type
+import com.squareup.kotlinpoet.ClassName
 import org.jetbrains.kotlin.name.FqName
 
 internal class ClassScannerKsp(
   tracer: KspTracer,
 ) : KspTracer by tracer {
   private val _hintCache =
-    RecordingCache<FqName, Map<KSType, Set<ContributedType>>>("Generated Property")
+    RecordingCache<FqName, Map<ClassName, Set<ContributedType>>>("Generated Property")
 
   private val parentComponentCache = RecordingCache<FqName, FqName?>("ParentComponent")
 
@@ -55,7 +56,7 @@ internal class ClassScannerKsp(
   }
 
   private var hintCacheWarmer: (() -> Unit)? = null
-  private val hintCache: RecordingCache<FqName, Map<KSType, Set<ContributedType>>>
+  private val hintCache: RecordingCache<FqName, Map<ClassName, Set<ContributedType>>>
     get() {
       hintCacheWarmer?.invoke()
       hintCacheWarmer = null
@@ -76,7 +77,7 @@ internal class ClassScannerKsp(
   @OptIn(KspExperimental::class)
   private fun generateHintCache(
     resolver: Resolver,
-  ): MutableMap<FqName, MutableMap<KSType, MutableSet<ContributedType>>> {
+  ): MutableMap<FqName, MutableMap<ClassName, MutableSet<ContributedType>>> {
     val contributedTypes = resolver.getDeclarationsFromPackage(HINT_PACKAGE)
       .filterIsInstance<KSPropertyDeclaration>()
       .mapNotNull(GeneratedProperty::from)
@@ -100,6 +101,7 @@ internal class ClassScannerKsp(
           }
           .mapTo(mutableSetOf()) {
             it.declaration.type.resolveKClassType()
+              .contextualToClassName(it.declaration)
           }
 
         ContributedType(
@@ -112,7 +114,7 @@ internal class ClassScannerKsp(
       }
 
     val contributedTypesByAnnotation =
-      mutableMapOf<FqName, MutableMap<KSType, MutableSet<ContributedType>>>()
+      mutableMapOf<FqName, MutableMap<ClassName, MutableSet<ContributedType>>>()
     for (contributed in contributedTypes) {
       contributed.reference.resolvableAnnotations
         .forEach { annotation ->
@@ -132,7 +134,7 @@ internal class ClassScannerKsp(
   data class ContributedType(
     val baseName: String,
     val reference: KSClassDeclaration,
-    val scopes: Set<KSType>,
+    val scopes: Set<ClassName>,
   )
 
   fun endRound() {
@@ -152,7 +154,9 @@ internal class ClassScannerKsp(
   ): Sequence<KSClassDeclaration> {
     return trace("Processing contributed classes for ${annotation.shortName().asString()}") {
       val typesByScope = hintCache[annotation] ?: emptyMap()
-      typesByScope.filterKeys { scope == null || it == scope }
+      typesByScope.filterKeys {
+        scope == null || it == scope.contextualToClassName(scope.declaration)
+      }
         .values
         .asSequence()
         .flatten()
