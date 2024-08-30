@@ -3,6 +3,7 @@ package com.squareup.anvil.compiler.codegen
 import com.google.common.truth.Truth.assertThat
 import com.rickbusarow.kase.asClueCatching
 import com.squareup.anvil.annotations.MergeSubcomponent
+import com.squareup.anvil.compiler.OPTION_ENABLE_CONTRIBUTES_SUBCOMPONENT_MERGING
 import com.squareup.anvil.compiler.PARENT_COMPONENT
 import com.squareup.anvil.compiler.SUBCOMPONENT_FACTORY
 import com.squareup.anvil.compiler.SUBCOMPONENT_MODULE
@@ -84,6 +85,37 @@ class ContributesSubcomponentHandlerGeneratorTest(
       val annotation = anvilComponent.getAnnotation(MergeSubcomponent::class.java)
       assertThat(annotation).isNotNull()
       assertThat(annotation.scope).isEqualTo(Any::class)
+    }
+  }
+
+  @Test fun `can be disabled in KSP`() {
+    assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
+    assumeTrue(mode is AnvilCompilationMode.Ksp)
+
+    val modeWithOption = (mode as AnvilCompilationMode.Ksp).copy(options = mapOf(
+      OPTION_ENABLE_CONTRIBUTES_SUBCOMPONENT_MERGING to "false"
+    ))
+    compile(
+      """
+        package com.squareup.test
+  
+        import com.squareup.anvil.annotations.ContributesSubcomponent
+        import com.squareup.anvil.annotations.MergeComponent
+  
+        @ContributesSubcomponent(Any::class, Unit::class)
+        interface SubcomponentInterface
+        
+        @MergeComponent(Unit::class)
+        interface ComponentInterface
+      """.trimIndent(),
+      mode = modeWithOption,
+    ) {
+      // val anvilComponent = subcomponentInterface.anvilComponent(componentInterface)
+      // assertThat(anvilComponent).isNotNull()
+      //
+      // val annotation = anvilComponent.getAnnotation(MergeSubcomponent::class.java)
+      // assertThat(annotation).isNotNull()
+      // assertThat(annotation.scope).isEqualTo(Any::class)
     }
   }
 
