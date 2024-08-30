@@ -24,6 +24,7 @@ import com.squareup.anvil.compiler.internal.testing.use
 import com.squareup.anvil.compiler.mergeComponentFqName
 import com.squareup.anvil.compiler.secondContributingInterface
 import com.squareup.anvil.compiler.subcomponentInterface
+import com.squareup.anvil.compiler.walkGeneratedFiles
 import com.tschuchort.compiletesting.JvmCompilationResult
 import com.tschuchort.compiletesting.KotlinCompilation.ExitCode
 import com.tschuchort.compiletesting.KotlinCompilation.ExitCode.OK
@@ -34,6 +35,7 @@ import org.jetbrains.kotlin.descriptors.runtime.structure.classId
 import org.junit.Assume.assumeFalse
 import org.junit.Assume.assumeTrue
 import org.junit.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import org.junit.runners.Parameterized.Parameters
@@ -41,26 +43,26 @@ import java.lang.reflect.Method
 import javax.inject.Singleton
 import kotlin.test.assertFailsWith
 
-// @RunWith(Parameterized::class)
+@RunWith(Parameterized::class)
 class ContributesSubcomponentHandlerGeneratorTest(
+  private val componentProcessingMode: ComponentProcessingMode,
+  private val mode: AnvilCompilationMode,
 ) {
-  private val componentProcessingMode: ComponentProcessingMode = ComponentProcessingMode.KSP
-  private val mode: AnvilCompilationMode = AnvilCompilationMode.Ksp()
 
-  // companion object {
-  //   @JvmStatic
-  //   @Parameters(name = "{0} {1}")
-  //   fun parameters(): Collection<Any> {
-  //     return buildList {
-  //       add(arrayOf(ComponentProcessingMode.NONE, AnvilCompilationMode.Embedded()))
-  //       add(arrayOf(ComponentProcessingMode.KAPT, AnvilCompilationMode.Embedded()))
-  //       if (includeKspTests()) {
-  //         add(arrayOf(ComponentProcessingMode.NONE, AnvilCompilationMode.Ksp()))
-  //         add(arrayOf(ComponentProcessingMode.KSP, AnvilCompilationMode.Ksp()))
-  //       }
-  //     }
-  //   }
-  // }
+  companion object {
+    @JvmStatic
+    @Parameters(name = "{0} {1}")
+    fun parameters(): Collection<Any> {
+      return buildList {
+        add(arrayOf(ComponentProcessingMode.NONE, AnvilCompilationMode.Embedded()))
+        add(arrayOf(ComponentProcessingMode.KAPT, AnvilCompilationMode.Embedded()))
+        if (includeKspTests()) {
+          add(arrayOf(ComponentProcessingMode.NONE, AnvilCompilationMode.Ksp()))
+          add(arrayOf(ComponentProcessingMode.KSP, AnvilCompilationMode.Ksp()))
+        }
+      }
+    }
+  }
 
   @Test fun `there is a subcomponent generated for a @MergeComponent`() {
     assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
@@ -92,9 +94,11 @@ class ContributesSubcomponentHandlerGeneratorTest(
     assumeTrue(componentProcessingMode == ComponentProcessingMode.NONE)
     assumeTrue(mode is AnvilCompilationMode.Ksp)
 
-    val modeWithOption = (mode as AnvilCompilationMode.Ksp).copy(options = mapOf(
-      OPTION_ENABLE_CONTRIBUTES_SUBCOMPONENT_MERGING to "false"
-    ))
+    val modeWithOption = (mode as AnvilCompilationMode.Ksp).copy(
+      options = mapOf(
+        OPTION_ENABLE_CONTRIBUTES_SUBCOMPONENT_MERGING to "false",
+      ),
+    )
     compile(
       """
         package com.squareup.test
@@ -110,12 +114,18 @@ class ContributesSubcomponentHandlerGeneratorTest(
       """.trimIndent(),
       mode = modeWithOption,
     ) {
-      // val anvilComponent = subcomponentInterface.anvilComponent(componentInterface)
-      // assertThat(anvilComponent).isNotNull()
-      //
-      // val annotation = anvilComponent.getAnnotation(MergeSubcomponent::class.java)
-      // assertThat(annotation).isNotNull()
-      // assertThat(annotation.scope).isEqualTo(Any::class)
+      assertThrows<ClassNotFoundException> {
+        subcomponentInterface.anvilComponent(componentInterface)
+      }
+      // Assert we didn't generate 'anvil/component/com/squareup/test/componentinterface/SubcomponentInterface_....kt'
+      val files = walkGeneratedFiles(modeWithOption).toList()
+      assertThat(files.size).isEqualTo(1)
+      check(
+        files.single().nameWithoutExtension.equals(
+          "Com_squareup_test_SubcomponentInterface_7280b174",
+          ignoreCase = true,
+        ),
+      )
     }
   }
 
