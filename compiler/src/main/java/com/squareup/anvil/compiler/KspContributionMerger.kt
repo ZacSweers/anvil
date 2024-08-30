@@ -484,7 +484,7 @@ internal class KspContributionMerger(
     val allContributesAnnotations: List<KSAnnotation> = annotations
       .asSequence()
       .flatMap { annotation ->
-        val scope = annotation.scope()
+        val scope = annotation.scopeClassName()
         classScanner
           .findContributedClasses(
             annotation = contributesToFqName,
@@ -495,7 +495,7 @@ internal class KspContributionMerger(
             resolver.getClassDeclarationByName(it.className.toString())!!
           }
           .plus(
-            contributorsInRound(resolver, contributedModulesInRound, scope.contextualToClassName(annotation), isModule = true),
+            contributorsInRound(resolver, contributedModulesInRound, scope, isModule = true),
           )
       }
       .flatMap { contributedClass ->
@@ -557,11 +557,11 @@ internal class KspContributionMerger(
               contributesBindingFqName.asString(),
               contributesMultibindingFqName.asString(),
             )
-            .map(KSAnnotation::scope)
+            .map(KSAnnotation::scopeClassName)
             .plus(
               excludedClass
                 .find(contributesSubcomponentFqName.asString())
-                .map(KSAnnotation::parentScope),
+                .map { it.parentScope().toClassName() },
             )
             .any { scope -> scope in scopes }
 
@@ -777,7 +777,7 @@ internal class KspContributionMerger(
     val contributesAnnotations = trace("Finding contributed interfaces from ClassScanner") {
       mergeAnnotations
         .flatMap { annotation ->
-          val scope = annotation.scope()
+          val scope = annotation.scopeClassName()
           classScanner
             .findContributedClasses(
               annotation = contributesToFqName,
@@ -791,7 +791,7 @@ internal class KspContributionMerger(
               resolver.getClassDeclarationByName(it.className.toString())!!
             }
             .plus(
-              contributorsInRound(resolver, contributedInterfacesInRound, scope.toClassName(), isModule = false)
+              contributorsInRound(resolver, contributedInterfacesInRound, scope, isModule = false)
                 .filter { clazz ->
                   clazz.isInterface() && clazz.findAll(daggerModuleFqName.asString())
                     .singleOrNull() == null
@@ -887,10 +887,10 @@ internal class KspContributionMerger(
               contributesBindingFqName.asString(),
               contributesMultibindingFqName.asString(),
             )
-            .map(KSAnnotation::scope)
+            .map(KSAnnotation::scopeClassName)
             .plus(
               excludedClass.findAll(contributesSubcomponentFqName.asString())
-                .map(KSAnnotation::parentScope),
+                .map { it.parentScope().toClassName() },
             )
             .any { scope -> scope in scopes }
 

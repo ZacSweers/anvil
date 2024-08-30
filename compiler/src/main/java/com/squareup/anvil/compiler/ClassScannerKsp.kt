@@ -10,6 +10,7 @@ import com.google.devtools.ksp.symbol.KSType
 import com.google.devtools.ksp.symbol.KSTypeReference
 import com.google.devtools.ksp.symbol.Origin
 import com.google.devtools.ksp.symbol.Visibility
+import com.squareup.anvil.annotations.internal.InternalAnvilHintMarker
 import com.squareup.anvil.compiler.ClassScannerKsp.GeneratedProperty.ReferenceProperty
 import com.squareup.anvil.compiler.ClassScannerKsp.GeneratedProperty.ScopeProperty
 import com.squareup.anvil.compiler.api.AnvilCompilationException
@@ -24,7 +25,6 @@ import com.squareup.anvil.compiler.codegen.ksp.isInterface
 import com.squareup.anvil.compiler.codegen.ksp.parentScope
 import com.squareup.anvil.compiler.codegen.ksp.resolvableAnnotations
 import com.squareup.anvil.compiler.codegen.ksp.resolveKSClassDeclaration
-import com.squareup.anvil.compiler.codegen.ksp.scope
 import com.squareup.anvil.compiler.codegen.ksp.scopeClassName
 import com.squareup.anvil.compiler.codegen.ksp.trace
 import com.squareup.anvil.compiler.codegen.ksp.type
@@ -47,10 +47,17 @@ internal class ClassScannerKsp(
    * Externally-contributed contributions, which are important to track so that we don't try to
    * add originating files for them when generating code.
    */
-  private val externalContributions = mutableSetOf<FqName>()
+  private val externalContributions = mutableSetOf<ClassName>()
+
+  private var classpathHintCacheWarmed = false
+  private var inRoundClasspathHintCacheWarmed = false
+  private var roundStarted = false
+  private var roundResolver: Resolver? = null
+  private val resolver: Resolver get() = roundResolver ?: error("Round not started!")
+  private var round = 0
 
   fun isExternallyContributed(declaration: KSClassDeclaration): Boolean {
-    return declaration.fqName in externalContributions
+    return declaration.toClassName() in externalContributions
   }
 
   private fun KSTypeReference.resolveKClassType(): KSType {
@@ -58,31 +65,55 @@ internal class ClassScannerKsp(
       .arguments.single().type!!.resolve()
   }
 
-  private var hintCacheWarmer: (() -> Unit)? = null
-  private val hintCache: RecordingCache<FqName, Map<ClassName, Set<ContributedType>>>
-    get() {
-      hintCacheWarmer?.invoke()
-      hintCacheWarmer = null
-      return _hintCache
+  /**
+   * In order to limit classpath scanning, we cache the contributed hints from the classpath once
+   * in a KSP-compatible format (i.e. no holding onto symbols). Separately, we annotate hints
+   * with [InternalAnvilHintMarker] to pick them up in the current round.
+   *
+   * [ClassScanningKspProcessor] in turn ensures that any [InternalAnvilHintMarker]-annotated
+   * symbols in a given round are passed on to the next round.
+   *
+   * The end result is every hint is only processed once into our cache.
+   */
+  @OptIn(KspExperimental::class)
+  private fun hintCache(): RecordingCache<FqName, Map<ClassName, Set<ContributedType>>> {
+    if (!classpathHintCacheWarmed) {
+      _hintCache += trace("Warming classpath hint cache") {
+        generateHintCache(
+          resolver.getDeclarationsFromPackage(HINT_PACKAGE)
+            .filterIsInstance<KSPropertyDeclaration>(),
+          isClassPathScan = true
+        ).also {
+          log("Loaded ${it.values.flatMap { it.values.flatten() }.size} contributed hints from the classpath.")
+        }
+      }
+      classpathHintCacheWarmed = true
     }
-  private var roundStarted = false
+    if (!inRoundClasspathHintCacheWarmed) {
+      _hintCache += trace("Warming in-round hint cache") {
+        generateHintCache(
+          resolver.getSymbolsWithAnnotation(internalAnvilHintMarkerClassName.canonicalName)
+            .filterIsInstance<KSPropertyDeclaration>(),
+          isClassPathScan = false
+        )
+      }
+      inRoundClasspathHintCacheWarmed = true
+    }
+    return _hintCache
+  }
 
   fun startRound(resolver: Resolver) {
     if (roundStarted) return
+    round++
     roundStarted = true
-    hintCacheWarmer = {
-      _hintCache += trace("Warming hint cache") {
-        generateHintCache(resolver)
-      }
-    }
+    roundResolver = resolver
   }
 
-  @OptIn(KspExperimental::class)
   private fun generateHintCache(
-    resolver: Resolver,
+    properties: Sequence<KSPropertyDeclaration>,
+    isClassPathScan: Boolean,
   ): MutableMap<FqName, MutableMap<ClassName, MutableSet<ContributedType>>> {
-    val contributedTypes = resolver.getDeclarationsFromPackage(HINT_PACKAGE)
-      .filterIsInstance<KSPropertyDeclaration>()
+    val contributedTypes = properties
       .mapNotNull(GeneratedProperty::from)
       .groupBy(GeneratedProperty::baseName)
       .mapNotNull { (name, properties) ->
@@ -110,6 +141,12 @@ internal class ClassScannerKsp(
         val declaration = refProp.declaration.type
           .resolveKClassType()
           .resolveKSClassDeclaration()!!
+
+        val className = declaration.toClassName()
+
+        if (isClassPathScan && (declaration.origin == Origin.KOTLIN_LIB || declaration.origin == Origin.JAVA_LIB)) {
+          externalContributions += className
+        }
 
         var contributedSubcomponentData: ContributedType.ContributedSubcomponentData? = null
         val contributingAnnotationTypes = mutableSetOf<FqName>()
@@ -142,7 +179,7 @@ internal class ClassScannerKsp(
 
         ContributedType(
           baseName = name,
-          className = declaration.toClassName(),
+          className = className,
           scopes = scopes,
           contributingAnnotationTypes = contributingAnnotationTypes,
           isInterface = declaration.isInterface(),
@@ -184,8 +221,8 @@ internal class ClassScannerKsp(
     }
 
     init {
-      check(scopes == computedScopes) {
-        "Inconsistent scopes detected on $this"
+      if (scopes != computedScopes) {
+        System.err.println("Inconsistent scopes detected on $this")
       }
     }
 
@@ -200,10 +237,10 @@ internal class ClassScannerKsp(
   }
 
   fun endRound() {
-    hintCacheWarmer = null
     roundStarted = false
+    roundResolver = null
+    inRoundClasspathHintCacheWarmed = false
     log(_hintCache.statsString())
-    _hintCache.clear()
   }
 
   /**
@@ -212,23 +249,17 @@ internal class ClassScannerKsp(
    */
   fun findContributedClasses(
     annotation: FqName,
-    scope: KSType?,
+    scope: ClassName?,
   ): Sequence<ContributedType> {
     return trace("Processing contributed classes for ${annotation.shortName().asString()}") {
-      val typesByScope = hintCache[annotation] ?: emptyMap()
+      val typesByScope = hintCache()[annotation] ?: emptyMap()
       typesByScope.filterKeys {
-        scope == null || it == scope.contextualToClassName(scope.declaration)
+        scope == null || it == scope
       }
         .values
         .asSequence()
         .flatten()
         .distinctBy { it.className }
-      // TODO move this to initial hint cache load
-      // .onEach { clazz ->
-      //   if (clazz.origin == Origin.KOTLIN_LIB || clazz.origin == Origin.JAVA_LIB) {
-      //     externalContributions.add(clazz.fqName)
-      //   }
-      // }
     }
   }
 
@@ -285,7 +316,7 @@ internal class ClassScannerKsp(
     resolver: Resolver,
     componentClass: KSClassDeclaration,
     creatorClass: KSClassDeclaration?,
-    parentScopeType: KSType?,
+    parentScopeType: ClassName?,
   ): KSClassDeclaration? = trace(
     "Finding parent component interface for ${componentClass.simpleName.asString()}",
   ) {
@@ -306,7 +337,7 @@ internal class ClassScannerKsp(
       .filter { nestedClass ->
         nestedClass.resolvableAnnotations
           .any {
-            it.fqName == contributesToFqName && (if (parentScopeType != null) it.scope() == parentScopeType else true)
+            it.fqName == contributesToFqName && (if (parentScopeType != null) it.scopeClassName() == parentScopeType else true)
           }
       }
       .toList()

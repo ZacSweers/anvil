@@ -9,7 +9,6 @@ import com.google.devtools.ksp.symbol.KSAnnotation
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSFunctionDeclaration
 import com.google.devtools.ksp.symbol.KSName
-import com.google.devtools.ksp.symbol.KSType
 import com.squareup.anvil.annotations.ContributesSubcomponent
 import com.squareup.anvil.annotations.MergeSubcomponent
 import com.squareup.anvil.annotations.internal.InternalContributedSubcomponentMarker
@@ -22,7 +21,6 @@ import com.squareup.anvil.compiler.PARENT_COMPONENT
 import com.squareup.anvil.compiler.codegen.ksp.AnvilSymbolProcessor
 import com.squareup.anvil.compiler.codegen.ksp.KspAnvilException
 import com.squareup.anvil.compiler.codegen.ksp.classId
-import com.squareup.anvil.compiler.codegen.ksp.contextualToClassName
 import com.squareup.anvil.compiler.codegen.ksp.declaringClass
 import com.squareup.anvil.compiler.codegen.ksp.exclude
 import com.squareup.anvil.compiler.codegen.ksp.find
@@ -37,7 +35,7 @@ import com.squareup.anvil.compiler.codegen.ksp.replaces
 import com.squareup.anvil.compiler.codegen.ksp.resolvableAnnotations
 import com.squareup.anvil.compiler.codegen.ksp.resolveKSClassDeclaration
 import com.squareup.anvil.compiler.codegen.ksp.returnTypeOrNull
-import com.squareup.anvil.compiler.codegen.ksp.scope
+import com.squareup.anvil.compiler.codegen.ksp.scopeClassName
 import com.squareup.anvil.compiler.codegen.ksp.trace
 import com.squareup.anvil.compiler.contributesSubcomponentFqName
 import com.squareup.anvil.compiler.daggerBindingModuleSpec
@@ -48,6 +46,7 @@ import com.squareup.anvil.compiler.internal.createAnvilSpec
 import com.squareup.anvil.compiler.internal.joinSimpleNamesAndTruncate
 import com.squareup.anvil.compiler.internal.reference.asClassId
 import com.squareup.anvil.compiler.internal.safePackageString
+import com.squareup.anvil.compiler.mapToSet
 import com.squareup.anvil.compiler.mergeComponentFqName
 import com.squareup.anvil.compiler.mergeInterfacesFqName
 import com.squareup.anvil.compiler.mergeSubcomponentFqName
@@ -171,7 +170,7 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
                 .builder(MergeSubcomponent::class)
                 .addMember(
                   "scope = %T::class",
-                  contribution.scope.contextualToClassName(contribution.annotation),
+                  contribution.scope,
                 )
                 .apply {
                   fun addClassArrayMember(
@@ -204,7 +203,7 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
                   resolver,
                   contribution.clazz,
                   factoryClass?.originalReference,
-                  contribution.parentScopeType,
+                  contribution.parentScope,
                 )
               addAnnotation(
                 AnnotationSpec.builder(InternalContributedSubcomponentMarker::class)
@@ -291,7 +290,7 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
             .flatMap { annotatedClass ->
               annotatedClass.find(generationTrigger.asString())
                 .map { annotation ->
-                  Trigger(annotatedClass, annotation.scope(), annotation.exclude().toSet())
+                  Trigger(annotatedClass, annotation.scopeClassName(), annotation.exclude().mapToSet { it.toClassName() })
                 }
             }
         }
@@ -299,7 +298,7 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
 
     if (triggers.isNotEmpty() && !hasComputedInitialContributions) {
       hasComputedInitialContributions = true
-      populateInitialContributions()
+      populateInitialContributions(resolver)
     }
 
     // Find new contributed subcomponents in this module. If there's a trigger for them, then we
@@ -334,7 +333,7 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
       .flatMap { contribution ->
         triggers
           .filter { trigger ->
-            trigger.scope == contribution.parentScopeType && contribution.clazz !in trigger.exclusions
+            trigger.scope == contribution.parentScope && contribution.classClassName !in trigger.exclusions
           }
           .map { trigger ->
             GenerateCodeEvent(trigger, contribution)
@@ -433,7 +432,7 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
 
   private fun checkReplacedSubcomponentWasNotAlreadyGenerated(
     contributedReference: KSClassDeclaration,
-    replacedReferences: Collection<ClassName>,
+    replacedReferences: Set<ClassName>,
   ) {
     replacedReferences.forEach { replacedReference ->
       if (processedContributionClasses.any { it == replacedReference }) {
@@ -487,8 +486,8 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
 
   private class Trigger(
     val clazz: KSClassDeclaration,
-    val scope: KSType,
-    val exclusions: Set<KSClassDeclaration>,
+    val scope: ClassName,
+    val exclusions: Set<ClassName>,
   ) {
 
     val clazzFqName = clazz.fqName
@@ -519,11 +518,11 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
   private class Contribution(val annotation: KSAnnotation) {
     val clazz = annotation.declaringClass
     val classClassName = clazz.toClassName()
-    val scope = annotation.scope()
-    val parentScopeType = annotation.parentScope().asType(emptyList())
+    val scope = annotation.scopeClassName()
+    val parentScope = annotation.parentScope().toClassName()
 
     override fun toString(): String {
-      return "Contribution(class=$classClassName, scope=$scope, parentScope=$parentScopeType)"
+      return "Contribution(class=$classClassName, scope=$scope, parentScope=$parentScope)"
     }
 
     override fun equals(other: Any?): Boolean {
@@ -533,7 +532,7 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
       other as Contribution
 
       if (scope != other.scope) return false
-      if (parentScopeType != other.parentScopeType) return false
+      if (parentScope != other.parentScope) return false
       if (classClassName != other.classClassName) return false
 
       return true
@@ -541,7 +540,7 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
 
     override fun hashCode(): Int {
       var result = scope.hashCode()
-      result = 31 * result + parentScopeType.hashCode()
+      result = 31 * result + parentScope.hashCode()
       result = 31 * result + classClassName.hashCode()
       return result
     }
