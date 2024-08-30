@@ -66,9 +66,12 @@ internal class ClassScanningKspProcessor(
         listOf(KspContributionMerger(env, classScanner, contributesSubcomponentHandler, extensions))
       } else if (enableContributesSubcomponentHandling) {
         // We're only generating factories/contributessubcomponents, so only run it + extensions
-        listOf(contributesSubcomponentHandler as SymbolProcessor, AnvilKspExtensionsRunner(extensions))
+        listOf(
+          contributesSubcomponentHandler as SymbolProcessor,
+          AnvilKspExtensionsRunner(extensions),
+        )
       } else {
-          listOf(AnvilKspExtensionsRunner(extensions))
+        listOf(AnvilKspExtensionsRunner(extensions))
       }
       ClassScanningKspProcessor(env, delegates, classScanner)
     },

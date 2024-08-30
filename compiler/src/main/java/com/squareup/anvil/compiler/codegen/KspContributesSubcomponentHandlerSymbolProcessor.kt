@@ -70,7 +70,6 @@ internal interface KspContributesSubcomponentHandler {
   companion object {
     val NoOp = object : KspContributesSubcomponentHandler {
       override fun computePendingEvents(resolver: Resolver) {
-
       }
 
       override fun hasPendingEvents(): Boolean = false
