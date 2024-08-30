@@ -1,5 +1,6 @@
 package com.squareup.anvil.compiler.codegen
 
+import com.google.devtools.ksp.getClassDeclarationByName
 import com.google.devtools.ksp.isAbstract
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
@@ -41,6 +42,7 @@ import com.squareup.anvil.compiler.codegen.ksp.trace
 import com.squareup.anvil.compiler.contributesSubcomponentFqName
 import com.squareup.anvil.compiler.daggerBindingModuleSpec
 import com.squareup.anvil.compiler.defaultParentComponentFunctionName
+import com.squareup.anvil.compiler.fqName
 import com.squareup.anvil.compiler.internal.asClassName
 import com.squareup.anvil.compiler.internal.createAnvilSpec
 import com.squareup.anvil.compiler.internal.joinSimpleNamesAndTruncate
@@ -445,7 +447,7 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
     }
   }
 
-  private fun populateInitialContributions() = trace("Populate initial contributions") {
+  private fun populateInitialContributions(resolver: Resolver) = trace("Populate initial contributions") {
     // Find all contributed subcomponents from precompiled dependencies and generate the
     // necessary code eventually if there's a trigger.
     contributions += classScanner
@@ -453,7 +455,9 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
         annotation = contributesSubcomponentFqName,
         scope = null,
       )
-      .map { clazz ->
+      .map { contribution ->
+        // TODO can we push up this data into ContributedType?
+        val clazz = resolver.getClassDeclarationByName(contribution.className.toString())!!
         Contribution(
           annotation = clazz.resolvableAnnotations.single { it.fqName == contributesSubcomponentFqName },
         )

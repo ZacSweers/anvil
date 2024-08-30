@@ -21,12 +21,15 @@ import com.squareup.anvil.compiler.codegen.ksp.fqName
 import com.squareup.anvil.compiler.codegen.ksp.getAllCallables
 import com.squareup.anvil.compiler.codegen.ksp.isAbstract
 import com.squareup.anvil.compiler.codegen.ksp.isInterface
+import com.squareup.anvil.compiler.codegen.ksp.parentScope
 import com.squareup.anvil.compiler.codegen.ksp.resolvableAnnotations
 import com.squareup.anvil.compiler.codegen.ksp.resolveKSClassDeclaration
 import com.squareup.anvil.compiler.codegen.ksp.scope
+import com.squareup.anvil.compiler.codegen.ksp.scopeClassName
 import com.squareup.anvil.compiler.codegen.ksp.trace
 import com.squareup.anvil.compiler.codegen.ksp.type
 import com.squareup.kotlinpoet.ClassName
+import com.squareup.kotlinpoet.ksp.toClassName
 import org.jetbrains.kotlin.name.FqName
 
 internal class ClassScannerKsp(
@@ -108,26 +111,44 @@ internal class ClassScannerKsp(
           .resolveKClassType()
           .resolveKSClassDeclaration()!!
 
-        val contributingAnnotationTypes =
+        var contributedSubcomponentData: ContributedType.ContributedSubcomponentData? = null
+        val contributingAnnotationTypes = mutableSetOf<FqName>()
+        val contributesToData = mutableSetOf<ContributedType.ContributesToData>()
+        var isDaggerModule = false
+
         declaration.resolvableAnnotations
-          .mapNotNull { annotation ->
-            val type = annotation.annotationType
-              .contextualToClassName().fqName
-            if (type in CONTRIBUTION_ANNOTATIONS) {
-              type
-            } else {
-              null
+            .forEach { annotation ->
+              val type = annotation.annotationType
+                .contextualToClassName().fqName
+              if (type == daggerModuleFqName) {
+                isDaggerModule = true
+              } else if (type in CONTRIBUTION_ANNOTATIONS) {
+                contributingAnnotationTypes += type
+                if (type == contributesSubcomponentFqName) {
+                  val scope = annotation.scopeClassName()
+                  val parentScope = annotation.parentScope().toClassName()
+                  contributedSubcomponentData = ContributedType.ContributedSubcomponentData(
+                    scope = scope,
+                    parentScope = parentScope,
+                  )
+                } else if (type == contributesToFqName) {
+                  val scope = annotation.scopeClassName()
+                  contributesToData += ContributedType.ContributesToData(scope = scope)
+                }
+              }
             }
-          }
-          .toSet()
 
         if (contributingAnnotationTypes.isEmpty()) return@mapNotNull null
 
         ContributedType(
           baseName = name,
-          reference = declaration,
+          className = declaration.toClassName(),
           scopes = scopes,
           contributingAnnotationTypes = contributingAnnotationTypes,
+          isInterface = declaration.isInterface(),
+          isDaggerModule = isDaggerModule,
+          contributedSubcomponentData = contributedSubcomponentData,
+          contributesToData = contributesToData,
         )
       }
 
@@ -148,10 +169,35 @@ internal class ClassScannerKsp(
 
   data class ContributedType(
     val baseName: String,
-    val reference: KSClassDeclaration,
+    val className: ClassName,
     val scopes: Set<ClassName>,
     val contributingAnnotationTypes: Set<FqName>,
-  )
+    val isInterface: Boolean,
+    val isDaggerModule: Boolean,
+    val contributedSubcomponentData: ContributedSubcomponentData?,
+    val contributesToData: Set<ContributesToData>,
+  ) {
+    // TODO do we need this
+    private val computedScopes: Set<ClassName> = buildSet {
+      contributesToData.forEach { add(it.scope) }
+      contributedSubcomponentData?.let { add(it.scope) }
+    }
+
+    init {
+      check(scopes == computedScopes) {
+        "Inconsistent scopes detected on $this"
+      }
+    }
+
+    data class ContributesToData(
+      val scope: ClassName
+    )
+
+    data class ContributedSubcomponentData(
+      val scope: ClassName,
+      val parentScope: ClassName,
+    )
+  }
 
   fun endRound() {
     hintCacheWarmer = null
@@ -167,7 +213,7 @@ internal class ClassScannerKsp(
   fun findContributedClasses(
     annotation: FqName,
     scope: KSType?,
-  ): Sequence<KSClassDeclaration> {
+  ): Sequence<ContributedType> {
     return trace("Processing contributed classes for ${annotation.shortName().asString()}") {
       val typesByScope = hintCache[annotation] ?: emptyMap()
       typesByScope.filterKeys {
@@ -176,13 +222,13 @@ internal class ClassScannerKsp(
         .values
         .asSequence()
         .flatten()
-        .map { it.reference }
-        .distinctBy { it.qualifiedName?.asString() }
-        .onEach { clazz ->
-          if (clazz.origin == Origin.KOTLIN_LIB || clazz.origin == Origin.JAVA_LIB) {
-            externalContributions.add(clazz.fqName)
-          }
-        }
+        .distinctBy { it.className }
+      // TODO move this to initial hint cache load
+      // .onEach { clazz ->
+      //   if (clazz.origin == Origin.KOTLIN_LIB || clazz.origin == Origin.JAVA_LIB) {
+      //     externalContributions.add(clazz.fqName)
+      //   }
+      // }
     }
   }
 
