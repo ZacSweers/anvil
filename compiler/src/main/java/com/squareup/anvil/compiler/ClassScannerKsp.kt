@@ -82,7 +82,7 @@ internal class ClassScannerKsp(
         generateHintCache(
           resolver.getDeclarationsFromPackage(HINT_PACKAGE)
             .filterIsInstance<KSPropertyDeclaration>(),
-          isClassPathScan = true
+          isClassPathScan = true,
         ).also {
           log("Loaded ${it.values.flatMap { it.values.flatten() }.size} contributed hints from the classpath.")
         }
@@ -94,7 +94,7 @@ internal class ClassScannerKsp(
         generateHintCache(
           resolver.getSymbolsWithAnnotation(internalAnvilHintMarkerClassName.canonicalName)
             .filterIsInstance<KSPropertyDeclaration>(),
-          isClassPathScan = false
+          isClassPathScan = false,
         )
       }
       inRoundClasspathHintCacheWarmed = true
@@ -154,26 +154,26 @@ internal class ClassScannerKsp(
         var isDaggerModule = false
 
         declaration.resolvableAnnotations
-            .forEach { annotation ->
-              val type = annotation.annotationType
-                .contextualToClassName().fqName
-              if (type == daggerModuleFqName) {
-                isDaggerModule = true
-              } else if (type in CONTRIBUTION_ANNOTATIONS) {
-                contributingAnnotationTypes += type
-                if (type == contributesSubcomponentFqName) {
-                  val scope = annotation.scopeClassName()
-                  val parentScope = annotation.parentScope().toClassName()
-                  contributedSubcomponentData = ContributedType.ContributedSubcomponentData(
-                    scope = scope,
-                    parentScope = parentScope,
-                  )
-                } else if (type == contributesToFqName) {
-                  val scope = annotation.scopeClassName()
-                  contributesToData += ContributedType.ContributesToData(scope = scope)
-                }
+          .forEach { annotation ->
+            val type = annotation.annotationType
+              .contextualToClassName().fqName
+            if (type == daggerModuleFqName) {
+              isDaggerModule = true
+            } else if (type in CONTRIBUTION_ANNOTATIONS) {
+              contributingAnnotationTypes += type
+              if (type == contributesSubcomponentFqName) {
+                val scope = annotation.scopeClassName()
+                val parentScope = annotation.parentScope().toClassName()
+                contributedSubcomponentData = ContributedType.ContributedSubcomponentData(
+                  scope = scope,
+                  parentScope = parentScope,
+                )
+              } else if (type == contributesToFqName) {
+                val scope = annotation.scopeClassName()
+                contributesToData += ContributedType.ContributesToData(scope = scope)
               }
             }
+          }
 
         if (contributingAnnotationTypes.isEmpty()) return@mapNotNull null
 
@@ -227,7 +227,7 @@ internal class ClassScannerKsp(
     }
 
     data class ContributesToData(
-      val scope: ClassName
+      val scope: ClassName,
     )
 
     data class ContributedSubcomponentData(

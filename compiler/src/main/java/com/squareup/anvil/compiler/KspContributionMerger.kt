@@ -773,7 +773,10 @@ internal class KspContributionMerger(
     mergeAnnotatedClass: KSClassDeclaration,
     contributedInterfacesInRound: Map<ClassName, List<KSClassDeclaration>>,
   ): List<ClassName> {
-    val scopes: Set<ClassName> = mergeAnnotations.mapTo(mutableSetOf(), KSAnnotation::scopeClassName)
+    val scopes: Set<ClassName> = mergeAnnotations.mapTo(
+      mutableSetOf(),
+      KSAnnotation::scopeClassName,
+    )
     val contributesAnnotations = trace("Finding contributed interfaces from ClassScanner") {
       mergeAnnotations
         .flatMap { annotation ->
@@ -1618,7 +1621,7 @@ private fun Creator.extend(
     ClassKind.ENUM_ENTRY,
     ClassKind.OBJECT,
     ClassKind.ANNOTATION_CLASS,
-      -> throw KspAnvilException(
+    -> throw KspAnvilException(
       node = declaration,
       message = "Unsupported class kind: ${declaration.classKind}",
     )

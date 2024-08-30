@@ -290,7 +290,12 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
             .flatMap { annotatedClass ->
               annotatedClass.find(generationTrigger.asString())
                 .map { annotation ->
-                  Trigger(annotatedClass, annotation.scopeClassName(), annotation.exclude().mapToSet { it.toClassName() })
+                  Trigger(
+                    annotatedClass, annotation.scopeClassName(),
+                    annotation.exclude().mapToSet {
+                      it.toClassName()
+                    },
+                  )
                 }
             }
         }
@@ -446,7 +451,9 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
     }
   }
 
-  private fun populateInitialContributions(resolver: Resolver) = trace("Populate initial contributions") {
+  private fun populateInitialContributions(resolver: Resolver) = trace(
+    "Populate initial contributions",
+  ) {
     // Find all contributed subcomponents from precompiled dependencies and generate the
     // necessary code eventually if there's a trigger.
     contributions += classScanner
