@@ -82,7 +82,7 @@ internal class ClassScannerKsp(
       .filterIsInstance<KSPropertyDeclaration>()
       .mapNotNull(GeneratedProperty::from)
       .groupBy(GeneratedProperty::baseName)
-      .map { (name, properties) ->
+      .mapNotNull { (name, properties) ->
         val refProp = properties.filterIsInstance<ReferenceProperty>()
           // In some rare cases we can see a generated property for the same identifier.
           // Filter them just in case, see https://github.com/square/anvil/issues/460 and
@@ -104,23 +104,38 @@ internal class ClassScannerKsp(
               .contextualToClassName(it.declaration)
           }
 
+        val declaration = refProp.declaration.type
+          .resolveKClassType()
+          .resolveKSClassDeclaration()!!
+
+        val contributingAnnotationTypes =
+        declaration.resolvableAnnotations
+          .mapNotNull { annotation ->
+            val type = annotation.annotationType
+              .contextualToClassName().fqName
+            if (type in CONTRIBUTION_ANNOTATIONS) {
+              type
+            } else {
+              null
+            }
+          }
+          .toSet()
+
+        if (contributingAnnotationTypes.isEmpty()) return@mapNotNull null
+
         ContributedType(
           baseName = name,
-          reference = refProp.declaration.type
-            .resolveKClassType()
-            .resolveKSClassDeclaration()!!,
+          reference = declaration,
           scopes = scopes,
+          contributingAnnotationTypes = contributingAnnotationTypes,
         )
       }
 
     val contributedTypesByAnnotation =
       mutableMapOf<FqName, MutableMap<ClassName, MutableSet<ContributedType>>>()
     for (contributed in contributedTypes) {
-      contributed.reference.resolvableAnnotations
-        .forEach { annotation ->
-          val type = annotation.annotationType
-            .contextualToClassName().fqName
-          if (type !in CONTRIBUTION_ANNOTATIONS) return@forEach
+      contributed.contributingAnnotationTypes
+        .forEach { type ->
           for (scope in contributed.scopes) {
             contributedTypesByAnnotation.getOrPut(type, ::mutableMapOf)
               .getOrPut(scope, ::mutableSetOf)
@@ -135,6 +150,7 @@ internal class ClassScannerKsp(
     val baseName: String,
     val reference: KSClassDeclaration,
     val scopes: Set<ClassName>,
+    val contributingAnnotationTypes: Set<FqName>,
   )
 
   fun endRound() {
