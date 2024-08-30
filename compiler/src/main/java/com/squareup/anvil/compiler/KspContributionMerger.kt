@@ -1623,7 +1623,7 @@ private fun Creator.extend(
     ClassKind.ENUM_ENTRY,
     ClassKind.OBJECT,
     ClassKind.ANNOTATION_CLASS,
-      -> throw KspAnvilException(
+    -> throw KspAnvilException(
       node = declaration,
       message = "Unsupported class kind: ${declaration.classKind}",
     )
