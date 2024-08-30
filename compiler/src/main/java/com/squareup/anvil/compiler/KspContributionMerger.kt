@@ -490,8 +490,11 @@ internal class KspContributionMerger(
             annotation = contributesToFqName,
             scope = scope,
           )
+          .filter {
+            it.contributesToData.isNotEmpty() &&
+              it.scopes.any { it in scopes }
+          }
           .map {
-            // TODO make this lazier
             resolver.getClassDeclarationByName(it.className.toString())!!
           }
           .plus(
@@ -773,10 +776,7 @@ internal class KspContributionMerger(
     mergeAnnotatedClass: KSClassDeclaration,
     contributedInterfacesInRound: Map<ClassName, List<KSClassDeclaration>>,
   ): List<ClassName> {
-    val scopes: Set<ClassName> = mergeAnnotations.mapTo(
-      mutableSetOf(),
-      KSAnnotation::scopeClassName,
-    )
+    val scopes: Set<ClassName> = mergeAnnotations.mapToSet(transform = KSAnnotation::scopeClassName)
     val contributesAnnotations = trace("Finding contributed interfaces from ClassScanner") {
       mergeAnnotations
         .flatMap { annotation ->
@@ -789,24 +789,26 @@ internal class KspContributionMerger(
             .filter { contribution ->
               contribution.isInterface && !contribution.isDaggerModule
             }
-            .map {
-              // TODO make this lazier
-              resolver.getClassDeclarationByName(it.className.toString())!!
+            .filter { it.scopes.any { it in scopes } }
+            .filter { it.contributesToData.isNotEmpty() }
+            .flatMap {
+              val declaration = resolver.getClassDeclarationByName(it.className.toString())!!
+              declaration.findAll(contributesToFqName.asString())
             }
             .plus(
               contributorsInRound(resolver, contributedInterfacesInRound, scope, isModule = false)
                 .filter { clazz ->
                   clazz.isInterface() && clazz.findAll(daggerModuleFqName.asString())
                     .singleOrNull() == null
+                }
+                .flatMap { clazz ->
+                  clazz
+                    .findAll(contributesToFqName.asString())
+                    .filter { it.scopeClassName() in scopes }
                 },
             )
         }
         .asSequence()
-        .flatMap { clazz ->
-          clazz
-            .findAll(contributesToFqName.asString())
-            .filter { it.scopeClassName() in scopes }
-        }
         .onEach { contributeAnnotation ->
           val contributedClass = contributeAnnotation.declaringClass
           if (contributedClass.getVisibility() != Visibility.PUBLIC) {
@@ -1621,7 +1623,7 @@ private fun Creator.extend(
     ClassKind.ENUM_ENTRY,
     ClassKind.OBJECT,
     ClassKind.ANNOTATION_CLASS,
-    -> throw KspAnvilException(
+      -> throw KspAnvilException(
       node = declaration,
       message = "Unsupported class kind: ${declaration.classKind}",
     )
@@ -1729,8 +1731,9 @@ private fun contributorsInRound(
   contributedSymbolsInRound: Map<ClassName, List<KSClassDeclaration>>,
   scope: ClassName,
   isModule: Boolean,
-): List<KSClassDeclaration> {
+): Sequence<KSClassDeclaration> {
   return contributedSymbolsInRound[scope].orEmpty()
+    .asSequence()
     .map { contributedSymbol ->
       val mergeAnnotation = contributedSymbol
         .getKSAnnotationsByType(MergeModules::class)
