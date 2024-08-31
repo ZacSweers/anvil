@@ -84,7 +84,9 @@ internal class ClassScannerKsp(
             .filterIsInstance<KSPropertyDeclaration>(),
           isClassPathScan = true,
         ).also {
-          log("Loaded ${it.values.flatMap { it.values.flatten() }.size} contributed hints from the classpath.")
+          log(
+            "Loaded ${it.values.flatMap { it.values.flatten() }.size} contributed hints from the classpath.",
+          )
         }
       }
       mergeNewHints(newHints)
@@ -112,7 +114,7 @@ internal class ClassScannerKsp(
   }
 
   private fun mergeNewHints(
-    newHints: Map<FqName, Map<ClassName, Set<ContributedType>>>
+    newHints: Map<FqName, Map<ClassName, Set<ContributedType>>>,
   ) {
     for ((annotation, hints) in newHints) {
       for ((scope, contributedTypes) in hints) {
