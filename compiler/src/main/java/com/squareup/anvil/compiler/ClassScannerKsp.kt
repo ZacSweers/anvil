@@ -51,6 +51,7 @@ internal class ClassScannerKsp(
 
   private var classpathHintCacheWarmed = false
   private var inRoundClasspathHintCacheWarmed = false
+  private var ensureInRoundHintsCaptured = false
   private var roundStarted = false
   private var roundResolver: Resolver? = null
   private val resolver: Resolver get() = roundResolver ?: error("Round not started!")
@@ -58,6 +59,14 @@ internal class ClassScannerKsp(
 
   fun isExternallyContributed(declaration: KSClassDeclaration): Boolean {
     return declaration.toClassName() in externalContributions
+  }
+
+  /**
+   * If called, instructs this scanner to capture in-round hints. Should usually be called if the
+   * consuming processor knows it will have deferred elements in a future round.
+   */
+  fun ensureInRoundHintsCaptured() {
+    ensureInRoundHintsCaptured = true
   }
 
   private fun KSTypeReference.resolveKClassType(): KSType {
@@ -92,6 +101,11 @@ internal class ClassScannerKsp(
       mergeNewHints(newHints)
       classpathHintCacheWarmed = true
     }
+    findInRoundHints()
+    return _hintCache
+  }
+
+  private fun findInRoundHints() {
     if (!inRoundClasspathHintCacheWarmed) {
       val newHints = trace("Warming in-round hint cache") {
         generateHintCache(
@@ -103,7 +117,6 @@ internal class ClassScannerKsp(
       mergeNewHints(newHints)
       inRoundClasspathHintCacheWarmed = true
     }
-    return _hintCache
   }
 
   fun startRound(resolver: Resolver) {
@@ -243,9 +256,15 @@ internal class ClassScannerKsp(
   }
 
   fun endRound() {
+    // If we generate any hint markers, we need to pass them on to the next round for the class
+    // scanner
+    if (ensureInRoundHintsCaptured) {
+      findInRoundHints()
+    }
     roundStarted = false
     roundResolver = null
     inRoundClasspathHintCacheWarmed = false
+    ensureInRoundHintsCaptured = false
     log(_hintCache.statsString())
   }
 

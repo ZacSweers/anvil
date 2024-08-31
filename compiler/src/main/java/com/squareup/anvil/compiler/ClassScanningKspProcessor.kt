@@ -81,12 +81,12 @@ internal class ClassScanningKspProcessor(
   override fun processChecked(resolver: Resolver): List<KSAnnotated> {
     classScanner.startRound(resolver)
     return delegates.flatMap { it.process(resolver) }
-      .plus(
-        // If we generate any hint markers, we need to pass them on to the next round for the class
-        // scanner
-        resolver.getSymbolsWithAnnotation(internalAnvilHintMarkerFqName.asString()),
-      )
-      .also { classScanner.endRound() }
+      .also {
+        if (it.isNotEmpty()) {
+          classScanner.ensureInRoundHintsCaptured()
+        }
+        classScanner.endRound()
+      }
   }
 
   override fun finish() {
