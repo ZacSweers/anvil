@@ -20,6 +20,7 @@ import com.squareup.anvil.compiler.codegen.ksp.KspTracer
 import com.squareup.anvil.compiler.codegen.ksp.contextualToClassName
 import com.squareup.anvil.compiler.codegen.ksp.fqName
 import com.squareup.anvil.compiler.codegen.ksp.getAllCallables
+import com.squareup.anvil.compiler.codegen.ksp.getClassDeclarationByName
 import com.squareup.anvil.compiler.codegen.ksp.isAbstract
 import com.squareup.anvil.compiler.codegen.ksp.isInterface
 import com.squareup.anvil.compiler.codegen.ksp.parentScope
@@ -350,7 +351,7 @@ internal class ClassScannerKsp(
     // Can't use getOrPut because it doesn't differentiate between absent and null
     if (fqName in parentComponentCache) {
       parentComponentCache.hit()
-      return parentComponentCache[fqName]?.let { resolver.getClassDeclarationByName(it.asString()) }
+      return parentComponentCache[fqName]?.let { resolver.getClassDeclarationByName(it) }
     } else {
       parentComponentCache.miss()
     }

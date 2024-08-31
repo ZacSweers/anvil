@@ -32,6 +32,7 @@ import com.squareup.anvil.compiler.codegen.ksp.isInterface
 import com.squareup.anvil.compiler.codegen.ksp.modules
 import com.squareup.anvil.compiler.codegen.ksp.parentScope
 import com.squareup.anvil.compiler.codegen.ksp.replaces
+import com.squareup.anvil.compiler.codegen.ksp.requireClassDeclaration
 import com.squareup.anvil.compiler.codegen.ksp.resolvableAnnotations
 import com.squareup.anvil.compiler.codegen.ksp.resolveKSClassDeclaration
 import com.squareup.anvil.compiler.codegen.ksp.returnTypeOrNull
@@ -463,7 +464,7 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
       )
       .map { contribution ->
         // TODO can we push up this data into ContributedType?
-        val clazz = resolver.getClassDeclarationByName(contribution.className.toString())!!
+        val clazz = resolver.requireClassDeclaration(contribution.className, node = null)
         Contribution(
           annotation = clazz.resolvableAnnotations.single { it.fqName == contributesSubcomponentFqName },
         )
