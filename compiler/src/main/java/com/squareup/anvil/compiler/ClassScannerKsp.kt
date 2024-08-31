@@ -36,7 +36,7 @@ internal class ClassScannerKsp(
   tracer: KspTracer,
 ) : KspTracer by tracer {
   private val _hintCache =
-    RecordingCache<FqName, Map<ClassName, Set<ContributedType>>>("Generated Property")
+    RecordingCache<FqName, MutableMap<ClassName, MutableSet<ContributedType>>>("Generated Property")
 
   private val parentComponentCache = RecordingCache<FqName, FqName?>("ParentComponent")
 
@@ -76,9 +76,9 @@ internal class ClassScannerKsp(
    * The end result is every hint is only processed once into our cache.
    */
   @OptIn(KspExperimental::class)
-  private fun hintCache(): RecordingCache<FqName, Map<ClassName, Set<ContributedType>>> {
+  private fun hintCache(): RecordingCache<FqName, MutableMap<ClassName, MutableSet<ContributedType>>> {
     if (!classpathHintCacheWarmed) {
-      _hintCache += trace("Warming classpath hint cache") {
+      val newHints = trace("Warming classpath hint cache") {
         generateHintCache(
           resolver.getDeclarationsFromPackage(HINT_PACKAGE)
             .filterIsInstance<KSPropertyDeclaration>(),
@@ -87,16 +87,18 @@ internal class ClassScannerKsp(
           log("Loaded ${it.values.flatMap { it.values.flatten() }.size} contributed hints from the classpath.")
         }
       }
+      mergeNewHints(newHints)
       classpathHintCacheWarmed = true
     }
     if (!inRoundClasspathHintCacheWarmed) {
-      _hintCache += trace("Warming in-round hint cache") {
+      val newHints = trace("Warming in-round hint cache") {
         generateHintCache(
           resolver.getSymbolsWithAnnotation(internalAnvilHintMarkerClassName.canonicalName)
             .filterIsInstance<KSPropertyDeclaration>(),
           isClassPathScan = false,
         )
       }
+      mergeNewHints(newHints)
       inRoundClasspathHintCacheWarmed = true
     }
     return _hintCache
@@ -107,6 +109,20 @@ internal class ClassScannerKsp(
     round++
     roundStarted = true
     roundResolver = resolver
+  }
+
+  private fun mergeNewHints(
+    newHints: Map<FqName, Map<ClassName, Set<ContributedType>>>
+  ) {
+    for ((annotation, hints) in newHints) {
+      for ((scope, contributedTypes) in hints) {
+        _hintCache.mutate { rawCache ->
+          rawCache.getOrPut(annotation, ::mutableMapOf)
+            .getOrPut(scope, ::mutableSetOf)
+            .addAll(contributedTypes)
+        }
+      }
+    }
   }
 
   private fun generateHintCache(
