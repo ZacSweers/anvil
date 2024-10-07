@@ -7,6 +7,7 @@ import com.google.devtools.ksp.isAnnotationPresent
 import com.google.devtools.ksp.isConstructor
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.ClassKind.ANNOTATION_CLASS
+import com.google.devtools.ksp.symbol.FileLocation
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSAnnotation
 import com.google.devtools.ksp.symbol.KSClassDeclaration
@@ -365,7 +366,24 @@ internal fun KSType.contextualToTypeName(
   typeParamResolver: TypeParameterResolver = TypeParameterResolver.EMPTY,
 ): TypeName {
   checkErrorType(origin)
-  return toTypeName(typeParamResolver)
+  return try {
+    toTypeName(typeParamResolver)
+  } catch (e: Exception) {
+    val parameterName = (origin as? KSValueParameter)?.name?.asString()
+    val locationDescription = (origin.location as? FileLocation)?.let {
+      "${it.filePath}:${it.lineNumber}"
+    }
+    val message = buildString {
+      append("Failed to resolve type")
+      if (parameterName != null) {
+        append(" for parameter '$parameterName'")
+      }
+      if (locationDescription != null) {
+        append(" at $locationDescription")
+      }
+    }
+    throw IllegalArgumentException(message, e)
+  }
 }
 
 /**

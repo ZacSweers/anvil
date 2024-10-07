@@ -5,7 +5,6 @@ import com.google.devtools.ksp.getAllSuperTypes
 import com.google.devtools.ksp.getAnnotationsByType
 import com.google.devtools.ksp.getDeclaredProperties
 import com.google.devtools.ksp.getVisibility
-import com.google.devtools.ksp.symbol.FileLocation
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSFunctionDeclaration
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
@@ -139,7 +138,7 @@ private fun KSValueParameter.toConstructorParameter(
 ): ConstructorParameter? {
   val type = type.resolve()
   if (type.isError) return null
-  val paramTypeName = reportLocationOnError { type.contextualToTypeName(this, typeParameterResolver) }
+  val paramTypeName = type.contextualToTypeName(this, typeParameterResolver)
   val rawType = paramTypeName.requireRawType()
 
   val isWrappedInProvider = rawType == providerClassName
@@ -609,20 +608,6 @@ internal fun assertNoDuplicateFunctions(
       node = declaringClass,
       message = "Cannot have more than one binding method with the same name in " +
         "a single module: ${duplicateFunctions.keys.joinToString()}",
-    )
-  }
-}
-
-private fun <D : KSValueParameter, T> D.reportLocationOnError(block: () -> T): T {
-  return try {
-    block()
-  } catch (e: Exception) {
-    val name = name?.asString() ?: "unknown"
-    val locationDescription = (location as? FileLocation)?.let {
-      "${it.filePath}:${it.lineNumber}"
-    } ?: "unknown location"
-    throw IllegalArgumentException(
-      "Failed to resolve type for parameter '$name' at $locationDescription", e
     )
   }
 }
