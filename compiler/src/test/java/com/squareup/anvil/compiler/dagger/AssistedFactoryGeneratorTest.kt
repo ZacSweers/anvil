@@ -2185,6 +2185,40 @@ public final class AssistedServiceFactory_Impl implements AssistedServiceFactory
     }
   }
 
+  @Test fun `when a generic parameter can't be resolved the exception contains its location`() {
+    // This issue can only happen with KSP mode and no component processing mode, ignore others
+    if (componentProcessingMode == ComponentProcessingMode.NONE
+      && mode is AnvilCompilationMode.Ksp) {
+      compile(
+        """
+        package com.squareup.test
+        
+        import dagger.assisted.Assisted
+        import dagger.assisted.AssistedFactory
+        import dagger.assisted.AssistedInject
+        
+        data class AssistedService @AssistedInject constructor(
+          @Assisted val int: Int,
+          // Foo here is missing an import so it's unknown to KSP
+          val strings: List<Foo>
+        )
+        
+        @AssistedFactory
+        interface AssistedServiceFactory {
+          fun create(int: Int): AssistedService
+        }
+        """,
+        expectExitCode = ExitCode.COMPILATION_ERROR,
+      ) {
+        val lines = messages.split("\n")
+        val exceptionLine =
+          lines.find { it.contains("Failed to resolve type for parameter 'strings'") }
+        assertThat(exceptionLine).isNotNull()
+        assertThat(exceptionLine).contains(".kt:10")
+      }
+    }
+  }
+
   private fun compile(
     @Language("kotlin") vararg sources: String,
     previousCompilationResult: JvmCompilationResult? = null,
