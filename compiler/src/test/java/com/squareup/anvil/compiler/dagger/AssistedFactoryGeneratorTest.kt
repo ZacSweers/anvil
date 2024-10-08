@@ -2212,8 +2212,9 @@ public final class AssistedServiceFactory_Impl implements AssistedServiceFactory
       ) {
         val lines = messages.split("\n")
         val exceptionLine =
-          lines.find { it.contains("Failed to resolve type for parameter 'strings'") }
+          lines.find { it.contains("Error type '<ERROR TYPE>' is not resolvable in the current round of processing") }
         assertThat(exceptionLine).isNotNull()
+        assertThat(exceptionLine).contains("strings : List<[Error type: Unresolved type for Foo]>")
         assertThat(exceptionLine).contains(".kt:10")
       }
     }

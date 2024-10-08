@@ -7,7 +7,6 @@ import com.google.devtools.ksp.isAnnotationPresent
 import com.google.devtools.ksp.isConstructor
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.ClassKind.ANNOTATION_CLASS
-import com.google.devtools.ksp.symbol.FileLocation
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSAnnotation
 import com.google.devtools.ksp.symbol.KSClassDeclaration
@@ -366,24 +365,7 @@ internal fun KSType.contextualToTypeName(
   typeParamResolver: TypeParameterResolver = TypeParameterResolver.EMPTY,
 ): TypeName {
   checkErrorType(origin)
-  return try {
-    toTypeName(typeParamResolver)
-  } catch (e: Exception) {
-    val parameterName = (origin as? KSValueParameter)?.name?.asString()
-    val locationDescription = (origin.location as? FileLocation)?.let {
-      "${it.filePath}:${it.lineNumber}"
-    }
-    val message = buildString {
-      append("Failed to resolve type")
-      if (parameterName != null) {
-        append(" for parameter '$parameterName'")
-      }
-      if (locationDescription != null) {
-        append(" at $locationDescription")
-      }
-    }
-    throw IllegalArgumentException(message, e)
-  }
+  return toTypeName(typeParamResolver)
 }
 
 /**
@@ -404,11 +386,16 @@ internal fun KSType.contextualToClassName(origin: KSNode): ClassName {
 }
 
 private fun KSType.checkErrorType(origin: KSNode) {
-  if (isError) {
-    throw KspAnvilException(
-      message = "Error type '$this' is not resolvable in the current round of processing. Check your imports or, if this is a generated type, ensure the tool that generates it has its outputs appropriately sources as inputs to the KSP task.",
-      node = origin,
-    )
+  val errorType = if (this.isError) origin else arguments.find { it.type?.resolve()?.isError == true }?.type?.resolve()
+  if (errorType != null) {
+    val message = buildString {
+      append("Error type '$errorType' is not resolvable in the current round of processing. ")
+      (origin as? KSValueParameter)?.let {
+        append("This happened for parameter '${it.name?.asString()} : ${it.type.resolve()}'. ")
+      }
+      append("Check your imports or, if this is a generated type, ensure the tool that generates it has its outputs appropriately sources as inputs to the KSP task.")
+    }
+    throw KspAnvilException(message = message, node = origin)
   }
 }
 
