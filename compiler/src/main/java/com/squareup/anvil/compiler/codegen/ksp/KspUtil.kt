@@ -386,12 +386,20 @@ internal fun KSType.contextualToClassName(origin: KSNode): ClassName {
 }
 
 private fun KSType.checkErrorType(origin: KSNode) {
-  val errorType = if (this.isError) origin else arguments.find { it.type?.resolve()?.isError == true }?.type?.resolve()
+  val errorType = if (isError) origin else arguments.asSequence().mapNotNull { it.type?.resolve() }.firstOrNull { it.isError }
   if (errorType != null) {
     val message = buildString {
       append("Error type '$errorType' is not resolvable in the current round of processing. ")
-      (origin as? KSValueParameter)?.let {
-        append("This happened for parameter '${it.name?.asString()} : ${it.type.resolve()}'. ")
+      when (origin) {
+        is KSValueParameter -> {
+          append("This happened for parameter '${origin.name?.asString()} : ${origin.type.resolve()}'. ")
+        }
+        is KSPropertyDeclaration -> {
+          append("This happened for property '${origin.simpleName.getShortName()} : ${origin.type.resolve()}'. ")
+        }
+        is KSFunctionDeclaration -> {
+          append("This happened for function '${origin.simpleName.getShortName()}'. ")
+        }
       }
       append("Check your imports or, if this is a generated type, ensure the tool that generates it has its outputs appropriately sources as inputs to the KSP task.")
     }
