@@ -2187,8 +2187,9 @@ public final class AssistedServiceFactory_Impl implements AssistedServiceFactory
 
   @Test fun `when a generic parameter can't be resolved the exception contains its location`() {
     // This issue can only happen with KSP mode and no component processing mode, ignore others
-    if (componentProcessingMode == ComponentProcessingMode.NONE
-      && mode is AnvilCompilationMode.Ksp) {
+    if (componentProcessingMode == ComponentProcessingMode.NONE &&
+      mode is AnvilCompilationMode.Ksp
+    ) {
       compile(
         """
         package com.squareup.test
@@ -2212,7 +2213,11 @@ public final class AssistedServiceFactory_Impl implements AssistedServiceFactory
       ) {
         val lines = messages.split("\n")
         val exceptionLine =
-          lines.find { it.contains("Error type '<ERROR TYPE>' is not resolvable in the current round of processing") }
+          lines.find {
+            it.contains(
+              "Error type '<ERROR TYPE>' is not resolvable in the current round of processing",
+            )
+          }
         assertThat(exceptionLine).isNotNull()
         assertThat(exceptionLine).contains("strings : List<[Error type: Unresolved type for Foo]>")
         assertThat(exceptionLine).contains(".kt:10")
