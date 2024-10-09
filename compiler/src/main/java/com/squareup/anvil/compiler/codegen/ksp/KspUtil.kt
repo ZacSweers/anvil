@@ -386,11 +386,38 @@ internal fun KSType.contextualToClassName(origin: KSNode): ClassName {
 }
 
 private fun KSType.checkErrorType(origin: KSNode) {
-  if (isError) {
-    throw KspAnvilException(
-      message = "Error type '$this' is not resolvable in the current round of processing. Check your imports or, if this is a generated type, ensure the tool that generates it has its outputs appropriately sources as inputs to the KSP task.",
-      node = origin,
-    )
+  val errorTypeDescription = if (isError) {
+    origin.toString()
+  } else {
+    arguments.asSequence().mapNotNull {
+      it.type?.resolve()
+    }.firstOrNull { it.isError }?.toString()
+  }
+  if (errorTypeDescription != null) {
+    val message = buildString {
+      append(
+        "Error type '$errorTypeDescription' is not resolvable in the current round of processing. ",
+      )
+      when (origin) {
+        is KSValueParameter -> {
+          append(
+            "This happened for parameter '${origin.name?.asString()} : ${origin.type.resolve()}'. ",
+          )
+        }
+        is KSPropertyDeclaration -> {
+          append(
+            "This happened for property '${origin.simpleName.getShortName()} : ${origin.type.resolve()}'. ",
+          )
+        }
+        is KSFunctionDeclaration -> {
+          append("This happened for function '${origin.simpleName.getShortName()}'. ")
+        }
+      }
+      append(
+        "Check your imports or, if this is a generated type, ensure the tool that generates it has its outputs appropriately sources as inputs to the KSP task.",
+      )
+    }
+    throw KspAnvilException(message = message, node = origin)
   }
 }
 
