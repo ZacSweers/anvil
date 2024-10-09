@@ -386,16 +386,18 @@ internal fun KSType.contextualToClassName(origin: KSNode): ClassName {
 }
 
 private fun KSType.checkErrorType(origin: KSNode) {
-  val errorType = if (isError) {
-    origin
+  val errorTypeDescription = if (isError) {
+    origin.toString()
   } else {
     arguments.asSequence().mapNotNull {
       it.type?.resolve()
-    }.firstOrNull { it.isError }
+    }.firstOrNull { it.isError }?.toString()
   }
-  if (errorType != null) {
+  if (errorTypeDescription != null) {
     val message = buildString {
-      append("Error type '$errorType' is not resolvable in the current round of processing. ")
+      append(
+        "Error type '$errorTypeDescription' is not resolvable in the current round of processing. ",
+      )
       when (origin) {
         is KSValueParameter -> {
           append(
