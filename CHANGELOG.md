@@ -3,6 +3,8 @@
 **Unreleased**
 --------------
 
+- **Enhancement**: Report more context for error types, such as the name of the parameter it came from.
+
 0.3.1
 -----
 

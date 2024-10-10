@@ -1,6 +1,7 @@
 package com.squareup.anvil.compiler.codegen.ksp
 
 import com.google.devtools.ksp.KspExperimental
+import com.google.devtools.ksp.containingFile
 import com.google.devtools.ksp.getClassDeclarationByName
 import com.google.devtools.ksp.getDeclaredFunctions
 import com.google.devtools.ksp.isAnnotationPresent
@@ -22,6 +23,7 @@ import com.google.devtools.ksp.symbol.KSTypeParameter
 import com.google.devtools.ksp.symbol.KSTypeReference
 import com.google.devtools.ksp.symbol.KSValueParameter
 import com.google.devtools.ksp.symbol.Modifier
+import com.google.devtools.ksp.symbol.NonExistLocation
 import com.squareup.anvil.compiler.fqName
 import com.squareup.anvil.compiler.internal.reference.asClassId
 import com.squareup.anvil.compiler.mergeComponentFqName
@@ -386,39 +388,50 @@ internal fun KSType.contextualToClassName(origin: KSNode): ClassName {
 }
 
 private fun KSType.checkErrorType(origin: KSNode) {
-  val errorTypeDescription = if (isError) {
-    origin.toString()
+  val (type, node) = if (isError) {
+    this to origin
   } else {
-    arguments.asSequence().mapNotNull {
-      it.type?.resolve()
-    }.firstOrNull { it.isError }?.toString()
-  }
-  if (errorTypeDescription != null) {
-    val message = buildString {
-      append(
-        "Error type '$errorTypeDescription' is not resolvable in the current round of processing. ",
-      )
-      when (origin) {
-        is KSValueParameter -> {
-          append(
-            "This happened for parameter '${origin.name?.asString()} : ${origin.type.resolve()}'. ",
-          )
-        }
-        is KSPropertyDeclaration -> {
-          append(
-            "This happened for property '${origin.simpleName.getShortName()} : ${origin.type.resolve()}'. ",
-          )
-        }
-        is KSFunctionDeclaration -> {
-          append("This happened for function '${origin.simpleName.getShortName()}'. ")
+    arguments.asSequence()
+      .mapNotNull {
+        it.type?.let {
+          it.resolve() to it
         }
       }
-      append(
-        "Check your imports or, if this is a generated type, ensure the tool that generates it has its outputs appropriately sources as inputs to the KSP task.",
-      )
+      .firstOrNull { it.first.isError }
+  } ?: return
+
+  val message = buildString {
+    appendLine(
+      "Error type '$type' is not resolvable in the current round of processing.",
+    )
+    when (origin) {
+      is KSValueParameter -> {
+        appendLine(
+          "This happened for parameter '${origin.name?.asString()}: $type'.",
+        )
+      }
+      is KSPropertyDeclaration -> {
+        appendLine(
+          "This happened for property '${origin.simpleName.getShortName()}: $type'.",
+        )
+      }
+      is KSFunctionDeclaration -> {
+        appendLine("This happened for function '${origin.simpleName.getShortName()}: $type'.")
+      }
     }
-    throw KspAnvilException(message = message, node = origin)
+    append(
+      "Check for missing or broken imports",
+    )
+    origin.containingFile?.fileName?.let {
+      append(" in $it")
+    }
+    appendLine('.')
+    appendLine(
+      "If this is a generated type, ensure the tool that generates it has its outputs appropriately sourced as inputs to the KSP task.",
+    )
   }
+  val finalNode = node.takeUnless { it.location == NonExistLocation } ?: origin
+  throw KspAnvilException(message = message, node = finalNode)
 }
 
 internal val KSFunctionDeclaration.reportableReturnTypeNode: KSNode
@@ -428,7 +441,10 @@ internal fun Resolver.getClassDeclarationByName(className: ClassName): KSClassDe
   return getClassDeclarationByName(className.canonicalName)
 }
 
-internal fun Resolver.requireClassDeclaration(className: ClassName, node: (() -> KSNode)?): KSClassDeclaration {
+internal fun Resolver.requireClassDeclaration(
+  className: ClassName,
+  node: (() -> KSNode)?,
+): KSClassDeclaration {
   return getClassDeclarationByName(className)
     ?: run {
       val message = "Could not find class '$className'"
