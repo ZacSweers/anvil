@@ -69,7 +69,10 @@ internal val daggerBindsFqName = Binds::class.fqName
 internal val daggerProvidesFqName = Provides::class.fqName
 internal val daggerLazyFqName = Lazy::class.fqName
 internal val daggerLazyClassName = Lazy::class.asClassName()
-internal val injectFqName = Inject::class.fqName
+internal val injectFqNames = setOf(
+  Inject::class.fqName,
+  jakarta.inject.Inject::class.fqName
+)
 internal val qualifierFqName = Qualifier::class.fqName
 internal val mapKeyFqName = MapKey::class.fqName
 internal val assistedFqName = Assisted::class.fqName

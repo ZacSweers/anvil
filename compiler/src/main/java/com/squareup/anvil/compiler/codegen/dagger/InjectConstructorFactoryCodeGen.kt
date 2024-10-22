@@ -16,7 +16,7 @@ import com.squareup.anvil.compiler.codegen.PrivateCodeGenerator
 import com.squareup.anvil.compiler.codegen.injectConstructor
 import com.squareup.anvil.compiler.codegen.ksp.AnvilSymbolProcessor
 import com.squareup.anvil.compiler.codegen.ksp.AnvilSymbolProcessorProvider
-import com.squareup.anvil.compiler.injectFqName
+import com.squareup.anvil.compiler.injectFqNames
 import com.squareup.anvil.compiler.internal.containingFileAsJavaFile
 import com.squareup.anvil.compiler.internal.createAnvilSpec
 import com.squareup.anvil.compiler.internal.joinSimpleNames
@@ -112,7 +112,7 @@ internal object InjectConstructorFactoryCodeGen : AnvilApplicabilityChecker {
       .mapNotNull { clazz ->
         clazz.constructors
           .injectConstructor()
-          ?.takeIf { it.isAnnotatedWith(injectFqName) }
+          ?.takeIf { it.isAnnotatedWith(injectFqNames) }
           ?.let {
             generateFactoryClass(codeGenDir, clazz, it)
           }

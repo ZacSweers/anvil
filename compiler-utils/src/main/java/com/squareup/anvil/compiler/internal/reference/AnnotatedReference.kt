@@ -12,4 +12,5 @@ public interface AnnotatedReference {
   public val annotations: List<AnnotationReference>
 
   public fun isAnnotatedWith(fqName: FqName): Boolean = annotations.any { it.fqName == fqName }
+  public fun isAnnotatedWith(fqNames: Set<FqName>): Boolean = annotations.any { it.fqName in fqNames }
 }

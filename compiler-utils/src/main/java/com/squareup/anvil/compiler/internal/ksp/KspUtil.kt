@@ -477,3 +477,7 @@ public fun Resolver.requireClassDeclaration(fqName: FqName, node: KSNode?): KSCl
       }
     }
 }
+
+public fun Resolver.getSymbolsWithAnnotations(fqNames: Set<FqName>): Sequence<KSAnnotated> {
+  return fqNames.asSequence().flatMap { getSymbolsWithAnnotation(it.asString()) }
+}

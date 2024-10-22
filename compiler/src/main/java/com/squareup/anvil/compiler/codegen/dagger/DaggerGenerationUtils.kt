@@ -17,7 +17,7 @@ import com.squareup.anvil.compiler.assistedFqName
 import com.squareup.anvil.compiler.daggerDoubleCheckFqNameString
 import com.squareup.anvil.compiler.daggerLazyClassName
 import com.squareup.anvil.compiler.daggerLazyFqName
-import com.squareup.anvil.compiler.injectFqName
+import com.squareup.anvil.compiler.injectFqNames
 import com.squareup.anvil.compiler.internal.capitalize
 import com.squareup.anvil.compiler.internal.joinSimpleNames
 import com.squareup.anvil.compiler.internal.ksp.KspAnvilException
@@ -228,7 +228,7 @@ private fun ClassReference.declaredMemberInjectParameters(
   implementingClass: ClassReference,
 ): List<MemberInjectParameter> {
   return properties
-    .filter { it.isAnnotatedWith(injectFqName) }
+    .filter { it.isAnnotatedWith(injectFqNames) }
     .filter { it.visibility() != PRIVATE }
     .fold(listOf()) { acc, property ->
       val uniqueName = property.name.uniqueParameterName(superParameters, acc)
@@ -354,7 +354,7 @@ private fun MemberPropertyReference.toMemberInjectParameter(
   if (
     !isLateinit() &&
     !isAnnotatedWith(jvmFieldFqName) &&
-    setterAnnotations.none { it.fqName == injectFqName }
+    setterAnnotations.none { it.fqName in injectFqNames }
   ) {
     // Technically this works with Anvil and we could remove this check. But we prefer consistency
     // with Dagger.
@@ -409,7 +409,7 @@ private fun MemberPropertyReference.toMemberInjectParameter(
     memberInjectorClassName,
   )
 
-  val isSetterInjected = this.setterAnnotations.any { it.fqName == injectFqName }
+  val isSetterInjected = this.setterAnnotations.any { it.fqName in injectFqNames }
 
   // setter delegates require a "set" prefix for their inject function
   val accessName = if (isSetterInjected) {
