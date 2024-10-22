@@ -63,7 +63,6 @@ import dagger.Lazy
 import dagger.assisted.Assisted
 import dagger.internal.ProviderOfLazy
 import org.jetbrains.kotlin.name.FqName
-import javax.inject.Inject
 import javax.inject.Provider
 
 internal fun TypeName.wrapInProvider(): ParameterizedTypeName {
@@ -279,8 +278,8 @@ private fun KSClassDeclaration.declaredMemberInjectParameters(
   val implementingType = implementingClass.asType(emptyList())
   return getDeclaredProperties()
     .filter {
-      it.isAnnotationPresent<Inject>() ||
-        it.setter?.isAnnotationPresent<Inject>() == true
+      it.isAnnotationPresent(injectFqNames) ||
+        it.setter?.isAnnotationPresent(injectFqNames) == true
     }
     .filter { it.getVisibility() != Visibility.PRIVATE }
     .fold(mutableListOf()) { acc, property ->
@@ -454,7 +453,7 @@ private fun KSPropertyDeclaration.toMemberInjectParameter(
   if (
     !isLateInit() &&
     !isAnnotationPresent<JvmField>() &&
-    setter?.isAnnotationPresent<Inject>() != true
+    setter?.isAnnotationPresent(injectFqNames) != true
   ) {
     // Technically this works with Anvil and we could remove this check. But we prefer consistency
     // with Dagger.
@@ -514,7 +513,7 @@ private fun KSPropertyDeclaration.toMemberInjectParameter(
     memberInjectorClassName,
   )
 
-  val isSetterInjected = this.setter?.isAnnotationPresent<Inject>() == true
+  val isSetterInjected = this.setter?.isAnnotationPresent(injectFqNames) == true
 
   // setter delegates require a "set" prefix for their inject function
   val accessName = if (isSetterInjected) {

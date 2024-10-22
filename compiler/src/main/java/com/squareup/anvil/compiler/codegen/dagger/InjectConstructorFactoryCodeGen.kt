@@ -45,7 +45,6 @@ import dagger.internal.Factory
 import org.jetbrains.kotlin.descriptors.ModuleDescriptor
 import org.jetbrains.kotlin.psi.KtFile
 import java.io.File
-import javax.inject.Inject
 
 internal object InjectConstructorFactoryCodeGen : AnvilApplicabilityChecker {
   override fun isApplicable(context: AnvilContext) = context.generateFactories
@@ -60,7 +59,7 @@ internal object InjectConstructorFactoryCodeGen : AnvilApplicabilityChecker {
       val deferred = mutableListOf<KSAnnotated>()
       resolver.injectConstructors()
         .forEach { (clazz, constructor) ->
-          if (!constructor.isAnnotationPresent<Inject>()) {
+          if (!constructor.isAnnotationPresent(injectFqNames)) {
             // Only generating @Inject constructors
             return@forEach
           }

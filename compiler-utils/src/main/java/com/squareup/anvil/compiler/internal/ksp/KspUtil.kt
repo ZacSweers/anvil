@@ -42,6 +42,7 @@ import com.squareup.kotlinpoet.ksp.toClassName
 import com.squareup.kotlinpoet.ksp.toKModifier
 import com.squareup.kotlinpoet.ksp.toTypeName
 import dagger.assisted.AssistedInject
+import org.jetbrains.kotlin.analysis.utils.collections.mapToSet
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import javax.inject.Inject
@@ -63,6 +64,15 @@ public fun <T : Annotation> KSAnnotated.getKSAnnotationsByType(
 public fun KSAnnotated.getKSAnnotationsByQualifiedName(
   qualifiedName: String,
 ): Sequence<KSAnnotation> {
+  return getKSAnnotationsByQualifiedName(setOf(qualifiedName))
+}
+
+/**
+ * Returns a sequence of [KSAnnotations][KSAnnotation] of the given [qualifiedName].
+ */
+public fun KSAnnotated.getKSAnnotationsByQualifiedName(
+  qualifiedNames: Set<String>,
+): Sequence<KSAnnotation> {
   // Don't use resolvableAnnotations here to save the double resolve() call
   return annotations.filter {
     // Don't check the simple name as it could be a typealias
@@ -72,12 +82,18 @@ public fun KSAnnotated.getKSAnnotationsByQualifiedName(
     if (type.isError) return@filter false
 
     // Resolve the KSClassDeclaration to ensure we peek through typealiases
-    type.resolveKSClassDeclaration()?.qualifiedName?.asString() == qualifiedName
+    type.resolveKSClassDeclaration()?.qualifiedName?.asString() in qualifiedNames
   }
 }
 
 public fun KSAnnotated.isAnnotationPresent(qualifiedName: String): Boolean =
   getKSAnnotationsByQualifiedName(qualifiedName).firstOrNull() != null
+
+public fun KSAnnotated.isAnnotationPresent(qualifiedNames: Set<FqName>): Boolean =
+  isAnnotationPresent(qualifiedNames.mapToSet { it.asString() })
+
+public fun KSAnnotated.isAnnotationPresent(qualifiedNames: Set<String>): Boolean =
+  getKSAnnotationsByQualifiedName(qualifiedNames).firstOrNull() != null
 
 public inline fun <reified T> KSAnnotated.isAnnotationPresent(): Boolean {
   return isAnnotationPresent(T::class)

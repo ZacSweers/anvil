@@ -28,6 +28,7 @@ import java.io.File
 import javax.inject.Inject
 import javax.inject.Provider
 import javax.inject.Qualifier
+import jakarta.inject.Inject as JakartaInject
 
 internal val mergeComponentFqName = MergeComponent::class.fqName
 internal val mergeComponentFactoryFqName = MergeComponent.Factory::class.fqName
@@ -71,7 +72,7 @@ internal val daggerLazyFqName = Lazy::class.fqName
 internal val daggerLazyClassName = Lazy::class.asClassName()
 internal val injectFqNames = setOf(
   Inject::class.fqName,
-  jakarta.inject.Inject::class.fqName
+  JakartaInject::class.fqName
 )
 internal val qualifierFqName = Qualifier::class.fqName
 internal val mapKeyFqName = MapKey::class.fqName
