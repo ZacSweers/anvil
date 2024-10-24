@@ -42,7 +42,6 @@ import com.squareup.kotlinpoet.ksp.toClassName
 import com.squareup.kotlinpoet.ksp.toKModifier
 import com.squareup.kotlinpoet.ksp.toTypeName
 import dagger.assisted.AssistedInject
-import org.jetbrains.kotlin.analysis.utils.collections.mapToSet
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import javax.inject.Inject
@@ -89,8 +88,9 @@ public fun KSAnnotated.getKSAnnotationsByQualifiedName(
 public fun KSAnnotated.isAnnotationPresent(qualifiedName: String): Boolean =
   getKSAnnotationsByQualifiedName(qualifiedName).firstOrNull() != null
 
+@JvmName("isAnnotationPresentFqName")
 public fun KSAnnotated.isAnnotationPresent(qualifiedNames: Set<FqName>): Boolean =
-  isAnnotationPresent(qualifiedNames.mapToSet { it.asString() })
+  isAnnotationPresent(qualifiedNames.mapTo(mutableSetOf()) { it.asString() })
 
 public fun KSAnnotated.isAnnotationPresent(qualifiedNames: Set<String>): Boolean =
   getKSAnnotationsByQualifiedName(qualifiedNames).firstOrNull() != null

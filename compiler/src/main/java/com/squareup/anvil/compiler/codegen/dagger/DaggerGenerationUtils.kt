@@ -17,7 +17,9 @@ import com.squareup.anvil.compiler.assistedFqName
 import com.squareup.anvil.compiler.daggerDoubleCheckFqNameString
 import com.squareup.anvil.compiler.daggerLazyClassName
 import com.squareup.anvil.compiler.daggerLazyFqName
+import com.squareup.anvil.compiler.daggerProviderClassName
 import com.squareup.anvil.compiler.injectFqNames
+import com.squareup.anvil.compiler.internal.asClassName
 import com.squareup.anvil.compiler.internal.capitalize
 import com.squareup.anvil.compiler.internal.joinSimpleNames
 import com.squareup.anvil.compiler.internal.ksp.KspAnvilException
@@ -46,31 +48,33 @@ import com.squareup.anvil.compiler.internal.reference.joinSimpleNames
 import com.squareup.anvil.compiler.internal.requireRawType
 import com.squareup.anvil.compiler.internal.unwrappedTypes
 import com.squareup.anvil.compiler.internal.withJvmSuppressWildcardsIfNeeded
+import com.squareup.anvil.compiler.javaxProviderClassName
 import com.squareup.anvil.compiler.jvmFieldFqName
-import com.squareup.anvil.compiler.providerClassName
-import com.squareup.anvil.compiler.providerFqName
+import com.squareup.anvil.compiler.providerClassNames
+import com.squareup.anvil.compiler.providerFqNames
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.ParameterizedTypeName
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.TypeName
-import com.squareup.kotlinpoet.asClassName
 import com.squareup.kotlinpoet.ksp.TypeParameterResolver
 import com.squareup.kotlinpoet.ksp.toAnnotationSpec
 import com.squareup.kotlinpoet.ksp.toClassName
 import com.squareup.kotlinpoet.ksp.toTypeParameterResolver
-import dagger.Lazy
 import dagger.assisted.Assisted
 import dagger.internal.ProviderOfLazy
 import org.jetbrains.kotlin.name.FqName
-import javax.inject.Provider
 
-internal fun TypeName.wrapInProvider(): ParameterizedTypeName {
-  return Provider::class.asClassName().parameterizedBy(this)
+internal fun TypeName.wrapInProvider(providerType: ClassName): ParameterizedTypeName {
+  return providerType.parameterizedBy(this)
 }
 
 internal fun TypeName.wrapInLazy(): ParameterizedTypeName {
-  return Lazy::class.asClassName().parameterizedBy(this)
+  return wrapIn(daggerLazyClassName)
+}
+
+private fun TypeName.wrapIn(target: ClassName): ParameterizedTypeName {
+  return target.parameterizedBy(this)
 }
 
 internal fun List<ParameterReference>.mapToConstructorParameters(): List<ConstructorParameter> {
@@ -84,7 +88,7 @@ private fun ParameterReference.toConstructorParameter(
 ): ConstructorParameter {
   val type = type()
 
-  val isWrappedInProvider = type.asClassReferenceOrNull()?.fqName == providerFqName
+  val isWrappedInProvider = type.asClassReferenceOrNull()?.fqName in providerFqNames
   val isWrappedInLazy = type.asClassReferenceOrNull()?.fqName == daggerLazyFqName
   val isLazyWrappedInProvider = isWrappedInProvider &&
     type.unwrappedTypes.first().asClassReferenceOrNull()?.fqName == daggerLazyFqName
@@ -106,7 +110,7 @@ private fun ParameterReference.toConstructorParameter(
     name = uniqueName,
     originalName = name,
     typeName = typeName,
-    providerTypeName = typeName.wrapInProvider(),
+    providerTypeName = typeName.wrapInProvider(javaxProviderClassName),
     lazyTypeName = typeName.wrapInLazy(),
     isWrappedInProvider = isWrappedInProvider,
     isWrappedInLazy = isWrappedInLazy,
@@ -140,7 +144,7 @@ private fun KSValueParameter.toConstructorParameter(
   val paramTypeName = type.contextualToTypeName(this, typeParameterResolver)
   val rawType = paramTypeName.requireRawType()
 
-  val isWrappedInProvider = rawType == providerClassName
+  val isWrappedInProvider = rawType in providerClassNames
   val isWrappedInLazy = rawType == daggerLazyClassName
   val isLazyWrappedInProvider = isWrappedInProvider &&
     (paramTypeName.unwrappedTypes.first().requireRawType()) == daggerLazyClassName
@@ -163,7 +167,7 @@ private fun KSValueParameter.toConstructorParameter(
     name = uniqueName,
     originalName = name!!.asString(),
     typeName = typeName,
-    providerTypeName = typeName.wrapInProvider(),
+    providerTypeName = typeName.wrapInProvider(javaxProviderClassName),
     lazyTypeName = typeName.wrapInLazy(),
     isWrappedInProvider = isWrappedInProvider,
     isWrappedInLazy = isWrappedInLazy,
@@ -366,8 +370,7 @@ private fun MemberPropertyReference.toMemberInjectParameter(
 
   val originalName = name
   val type = type()
-
-  val isWrappedInProvider = type.asClassReferenceOrNull()?.fqName == providerFqName
+  val isWrappedInProvider = type.asClassReferenceOrNull()?.fqName in providerFqNames
   val isWrappedInLazy = type.asClassReferenceOrNull()?.fqName == daggerLazyFqName
   val isLazyWrappedInProvider = isWrappedInProvider &&
     type.unwrappedTypes.first().asClassReferenceOrNull()?.fqName == daggerLazyFqName
@@ -421,7 +424,7 @@ private fun MemberPropertyReference.toMemberInjectParameter(
     .filter { it.isQualifier() }
     .map { it.toAnnotationSpec() }
 
-  val providerTypeName = typeName.wrapInProvider()
+  val providerTypeName = typeName.wrapInProvider(javaxProviderClassName)
 
   return MemberInjectParameter(
     name = uniqueName,
@@ -439,7 +442,7 @@ private fun MemberPropertyReference.toMemberInjectParameter(
     accessName = accessName,
     qualifierAnnotationSpecs = qualifierAnnotations,
     injectedFieldSignature = fqName,
-    resolvedProviderTypeName = resolvedTypeName?.wrapInProvider() ?: providerTypeName,
+    resolvedProviderTypeName = resolvedTypeName?.wrapInProvider(javaxProviderClassName) ?: providerTypeName,
   )
 }
 
@@ -472,7 +475,7 @@ private fun KSPropertyDeclaration.toMemberInjectParameter(
   val propertyTypeName = resolvedType.contextualToTypeName(this, classParams)
   val rawType = propertyTypeName.requireRawType()
 
-  val isWrappedInProvider = rawType == providerClassName
+  val isWrappedInProvider = rawType in providerClassNames
   val isWrappedInLazy = rawType == daggerLazyClassName
   val isLazyWrappedInProvider = isWrappedInProvider &&
     (propertyTypeName.unwrappedTypes.first().requireRawType()) == daggerLazyClassName
@@ -527,7 +530,7 @@ private fun KSPropertyDeclaration.toMemberInjectParameter(
     .map { it.toAnnotationSpec() }
     .toList()
 
-  val providerTypeName = typeName.wrapInProvider()
+  val providerTypeName = typeName.wrapInProvider(javaxProviderClassName)
 
   return MemberInjectParameter(
     name = uniqueName,
@@ -545,7 +548,7 @@ private fun KSPropertyDeclaration.toMemberInjectParameter(
     accessName = accessName,
     qualifierAnnotationSpecs = qualifierAnnotations,
     injectedFieldSignature = FqName(qualifiedName!!.asString()),
-    resolvedProviderTypeName = resolvedTypeName?.wrapInProvider() ?: providerTypeName,
+    resolvedProviderTypeName = resolvedTypeName?.wrapInProvider(javaxProviderClassName) ?: providerTypeName,
   )
 }
 
