@@ -18,7 +18,6 @@ import com.squareup.anvil.compiler.daggerDoubleCheckFqNameString
 import com.squareup.anvil.compiler.daggerLazyClassName
 import com.squareup.anvil.compiler.daggerLazyFqName
 import com.squareup.anvil.compiler.injectFqNames
-import com.squareup.anvil.compiler.internal.asClassName
 import com.squareup.anvil.compiler.internal.capitalize
 import com.squareup.anvil.compiler.internal.joinSimpleNames
 import com.squareup.anvil.compiler.internal.ksp.KspAnvilException

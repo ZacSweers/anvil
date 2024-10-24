@@ -71,7 +71,6 @@ import com.squareup.kotlinpoet.ksp.writeTo
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import dagger.internal.InstanceFactory
-import dagger.internal.Provider
 import org.jetbrains.kotlin.descriptors.ModuleDescriptor
 import org.jetbrains.kotlin.psi.KtFile
 import java.io.File
