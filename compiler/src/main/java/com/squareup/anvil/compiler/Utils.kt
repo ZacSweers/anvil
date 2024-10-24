@@ -30,6 +30,7 @@ import javax.inject.Provider
 import javax.inject.Qualifier
 import jakarta.inject.Inject as JakartaInject
 import jakarta.inject.Provider as JakartaProvider
+import jakarta.inject.Qualifier as JakartaQualifier
 import dagger.internal.Provider as DaggerProvider
 
 internal val mergeComponentFqName = MergeComponent::class.fqName
@@ -76,7 +77,6 @@ internal val injectFqNames = setOf(
   Inject::class.fqName,
   JakartaInject::class.fqName
 )
-internal val qualifierFqName = Qualifier::class.fqName
 internal val mapKeyFqName = MapKey::class.fqName
 internal val assistedFqName = Assisted::class.fqName
 internal val assistedFactoryFqName = AssistedFactory::class.fqName
