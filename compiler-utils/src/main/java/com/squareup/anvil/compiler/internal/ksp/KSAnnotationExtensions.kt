@@ -10,9 +10,9 @@ import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSType
 import com.google.devtools.ksp.symbol.KSValueArgument
 import com.squareup.anvil.annotations.ContributesBinding
-import com.squareup.anvil.compiler.internal.scopeFqNames
 import com.squareup.anvil.compiler.internal.mapKeyFqName
 import com.squareup.anvil.compiler.internal.qualifierFqNames
+import com.squareup.anvil.compiler.internal.scopeFqNames
 import com.squareup.kotlinpoet.ClassName
 import org.jetbrains.kotlin.name.FqName
 

@@ -1,7 +1,6 @@
 package com.squareup.anvil.compiler.codegen.dagger
 
 import com.squareup.anvil.compiler.codegen.dagger.Parameter.AssistedParameterKey
-import com.squareup.anvil.compiler.daggerProviderClassName
 import com.squareup.anvil.compiler.javaxProviderClassName
 import com.squareup.kotlinpoet.AnnotationSpec
 import com.squareup.kotlinpoet.ClassName

@@ -6,7 +6,6 @@ import com.squareup.anvil.compiler.internal.contributesBindingFqName
 import com.squareup.anvil.compiler.internal.contributesMultibindingFqName
 import com.squareup.anvil.compiler.internal.contributesSubcomponentFqName
 import com.squareup.anvil.compiler.internal.contributesToFqName
-import com.squareup.anvil.compiler.internal.scopeFqNames
 import com.squareup.anvil.compiler.internal.mapKeyFqName
 import com.squareup.anvil.compiler.internal.mergeComponentFqName
 import com.squareup.anvil.compiler.internal.mergeInterfacesFqName
@@ -16,6 +15,7 @@ import com.squareup.anvil.compiler.internal.qualifierFqNames
 import com.squareup.anvil.compiler.internal.reference.AnnotationReference.Descriptor
 import com.squareup.anvil.compiler.internal.reference.AnnotationReference.Psi
 import com.squareup.anvil.compiler.internal.requireFqName
+import com.squareup.anvil.compiler.internal.scopeFqNames
 import com.squareup.kotlinpoet.AnnotationSpec
 import com.squareup.kotlinpoet.MemberName
 import org.jetbrains.kotlin.descriptors.ModuleDescriptor
