@@ -5,10 +5,12 @@ This repo is a fork of Anvil that seeks to complete KSP support. At the point of
 Anvil supported KSP contributions and factories, but not yet merging contributions or
 contributing subcomponents.
 
+Introduction blog: https://www.zacsweers.dev/introducing-anvil-ksp/
+
 ## Blockers
 
 Before trying to use KSP component merging, check this issue to see if any of the issues
-listed there affect you: https://github.com/ZacSweers/anvil/issues/16.
+listed there affect you: https://github.com/ZacSweers/anvil/issues/16. KSP1 is fully supported, KSP2 may have upstream blockers while it's in beta.
 
 ## Installation
 
@@ -30,12 +32,19 @@ The fork's gradle plugin will automatically substitute any annotations dependenc
 
 Latest version can be found here: https://github.com/ZacSweers/anvil/releases
 
+## Features
+
+- K2-compatible
+- Full KSP support + improved error messaging
+- `jakarta.inject` annotations support
+
 ## Migration
 
 ### 0. Prerequisites
 
 - You must be using Kotlin 1.9.24+ or 2.0.0+.
 - You must use `-Xjvm-default=all` or `-Xjvm-default=all-compatibility` if you are not already.
+- KSP does not support Android variants, so if you rely on `variantFilter` it will no longer work.
 
 ### 1. KSP Contributions
 
@@ -142,7 +151,7 @@ these scenarios has changed the most in the move to KSP.
 If you previously implemented any custom `CodeGenerator`s from Anvil, you may need to update these
 too.
 
-1. First, they must be converted to KSP if you haven't already.
+1. First, they must be converted to KSP if you haven't already. Anvil K1's `CodeGenerator` API is no longer supported nor necessary, any custom code gen can just be implemented in KSP as another processor that generates code that Anvil can process in a later round.
 2. If they generate code that is annotated with Anvil contributor annotations (e.g. `@ContributesTo`, `@ContributesBinding`, etc), you may need to indicate them to Anvil KSP via one of two mechanisms.
 
 > [!IMPORTANT]

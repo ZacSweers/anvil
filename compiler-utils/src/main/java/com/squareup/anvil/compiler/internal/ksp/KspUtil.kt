@@ -63,6 +63,15 @@ public fun <T : Annotation> KSAnnotated.getKSAnnotationsByType(
 public fun KSAnnotated.getKSAnnotationsByQualifiedName(
   qualifiedName: String,
 ): Sequence<KSAnnotation> {
+  return getKSAnnotationsByQualifiedName(setOf(qualifiedName))
+}
+
+/**
+ * Returns a sequence of [KSAnnotations][KSAnnotation] of the given [qualifiedName].
+ */
+public fun KSAnnotated.getKSAnnotationsByQualifiedName(
+  qualifiedNames: Set<String>,
+): Sequence<KSAnnotation> {
   // Don't use resolvableAnnotations here to save the double resolve() call
   return annotations.filter {
     // Don't check the simple name as it could be a typealias
@@ -72,12 +81,19 @@ public fun KSAnnotated.getKSAnnotationsByQualifiedName(
     if (type.isError) return@filter false
 
     // Resolve the KSClassDeclaration to ensure we peek through typealiases
-    type.resolveKSClassDeclaration()?.qualifiedName?.asString() == qualifiedName
+    type.resolveKSClassDeclaration()?.qualifiedName?.asString() in qualifiedNames
   }
 }
 
 public fun KSAnnotated.isAnnotationPresent(qualifiedName: String): Boolean =
   getKSAnnotationsByQualifiedName(qualifiedName).firstOrNull() != null
+
+@JvmName("isAnnotationPresentFqName")
+public fun KSAnnotated.isAnnotationPresent(qualifiedNames: Set<FqName>): Boolean =
+  isAnnotationPresent(qualifiedNames.mapTo(mutableSetOf()) { it.asString() })
+
+public fun KSAnnotated.isAnnotationPresent(qualifiedNames: Set<String>): Boolean =
+  getKSAnnotationsByQualifiedName(qualifiedNames).firstOrNull() != null
 
 public inline fun <reified T> KSAnnotated.isAnnotationPresent(): Boolean {
   return isAnnotationPresent(T::class)
@@ -387,18 +403,19 @@ public fun KSType.contextualToClassName(origin: KSNode): ClassName {
   return toClassName()
 }
 
-private fun KSType.checkErrorType(origin: KSNode) {
+@PublishedApi
+internal fun KSType.checkErrorType(origin: KSNode): KSType {
   val (type, node) = if (isError) {
     this to origin
   } else {
     arguments.asSequence()
-      .mapNotNull {
-        it.type?.let {
-          it.resolve() to it
+      .mapNotNull { arg ->
+        arg.type?.let { argType ->
+          argType.resolve() to argType
         }
       }
       .firstOrNull { it.first.isError }
-  } ?: return
+  } ?: return this
 
   val message = buildString {
     appendLine(
@@ -476,4 +493,8 @@ public fun Resolver.requireClassDeclaration(fqName: FqName, node: KSNode?): KSCl
         error(message)
       }
     }
+}
+
+public fun Resolver.getSymbolsWithAnnotations(fqNames: Set<FqName>): Sequence<KSAnnotated> {
+  return fqNames.asSequence().flatMap { getSymbolsWithAnnotation(it.asString()) }
 }

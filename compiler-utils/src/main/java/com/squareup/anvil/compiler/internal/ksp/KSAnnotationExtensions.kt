@@ -10,9 +10,9 @@ import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSType
 import com.google.devtools.ksp.symbol.KSValueArgument
 import com.squareup.anvil.annotations.ContributesBinding
-import com.squareup.anvil.compiler.internal.daggerScopeFqName
 import com.squareup.anvil.compiler.internal.mapKeyFqName
-import com.squareup.anvil.compiler.internal.qualifierFqName
+import com.squareup.anvil.compiler.internal.qualifierFqNames
+import com.squareup.anvil.compiler.internal.scopeFqNames
 import com.squareup.kotlinpoet.ClassName
 import org.jetbrains.kotlin.name.FqName
 
@@ -166,7 +166,17 @@ public fun KSAnnotation.classNameArgumentAt(
 public inline fun <reified T> KSAnnotation.argumentOfTypeAt(
   name: String,
 ): T? {
-  return argumentOfTypeWithMapperAt<T, T>(name) { _, value ->
+  return argumentOfTypeWithMapperAt<T, T>(name) { arg, value ->
+    when {
+      value is KSType -> {
+        value.checkErrorType(arg)
+      }
+      value is List<*> && value.firstOrNull() is KSType -> {
+        for (element in value) {
+          (element as KSType).checkErrorType(arg)
+        }
+      }
+    }
     value
   }
 }
@@ -197,14 +207,18 @@ public fun KSAnnotation.argumentAt(
 }
 
 private fun KSAnnotation.isTypeAnnotatedWith(
-  annotationFqName: FqName,
+  vararg annotationFqName: FqName,
+): Boolean = isTypeAnnotatedWith(annotationFqName.toSet())
+
+private fun KSAnnotation.isTypeAnnotatedWith(
+  annotationFqNames: Set<FqName>,
 ): Boolean = annotationType.resolve()
   .declaration
-  .isAnnotationPresent(annotationFqName.asString())
+  .isAnnotationPresent(annotationFqNames.toSet())
 
-public fun KSAnnotation.isQualifier(): Boolean = isTypeAnnotatedWith(qualifierFqName)
+public fun KSAnnotation.isQualifier(): Boolean = isTypeAnnotatedWith(qualifierFqNames)
 public fun KSAnnotation.isMapKey(): Boolean = isTypeAnnotatedWith(mapKeyFqName)
-public fun KSAnnotation.isDaggerScope(): Boolean = isTypeAnnotatedWith(daggerScopeFqName)
+public fun KSAnnotation.isDaggerScope(): Boolean = isTypeAnnotatedWith(scopeFqNames)
 
 public fun KSAnnotated.qualifierAnnotation(): KSAnnotation? =
   resolvableAnnotations.singleOrNull { it.isQualifier() }
