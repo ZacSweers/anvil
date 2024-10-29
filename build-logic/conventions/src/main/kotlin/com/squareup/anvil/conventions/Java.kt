@@ -11,7 +11,7 @@ internal fun Project.configureJavaCompile() {
   val jvmTargetInt = libs.versions.jvm.target.minimal.get().toInt()
   plugins.withId("java-base") {
     javaExtension.toolchain {
-      it.languageVersion.set(JavaLanguageVersion.of(jvmTargetInt))
+      it.languageVersion.set(JavaLanguageVersion.of(libs.versions.jvm.toolchain.get()))
     }
     javaExtension.targetCompatibility = JavaVersion.toVersion(jvmTargetInt)
     tasks.withType(JavaCompile::class.java).configureEach { task ->
