@@ -46,8 +46,11 @@ jobs:
           java-version: '17'
           check-latest: true
 
+      - name: Publish Annotations to Maven Local
+        run: ./gradlew :annotations:publishToMavenLocal
+
       - name: Test on Ubuntu
-        run: ./gradlew :annotations:publishToMavenLocal assemble test --no-build-cache --no-daemon --stacktrace -Doverride_kotlin=${{ matrix.kotlin-version }}
+        run: ./gradlew assemble test --no-build-cache --no-daemon --stacktrace -Doverride_kotlin=${{ matrix.kotlin-version }}
 
       - name: Upload Test Results
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4
@@ -68,6 +71,9 @@ jobs:
           java-version: '17'
           check-latest: true
 
+      - name: Publish Annotations to Maven Local
+        run: ./gradlew.bat :annotations:publishToMavenLocal
+
       # On Windows the command looks a little bit different. Notice that we use the .bat file and
       # quotes for the Kotlin version, because dots "." in the Kotlin version and parameter name
       # cause issues.
@@ -75,7 +81,7 @@ jobs:
       # Expressions in Github actions are limited. If there would be an if expression, then we
       # wouldn't need to duplicate the next step and depending on the OS enable / disable them.
       - name: Test on Windows
-        run: ./gradlew.bat :annotations:publishToMavenLocal assemble test --no-build-cache --no-daemon --stacktrace -Doverride_config-fullTestRun=false -Doverride_config-includeKspTests=false
+        run: ./gradlew.bat assemble test --no-build-cache --no-daemon --stacktrace -Doverride_config-fullTestRun=false -Doverride_config-includeKspTests=false
 
       - name: Upload Test Results
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4
