@@ -5,7 +5,7 @@ import kotlin.reflect.KClass
 import me.tatarka.inject.annotations.Scope as KotlinInjectScope
 
 /**
- * A class based [qualfier](Qualifier).
+ * A class based [qualifier](Qualifier).
  *
  * This can be used in combination with other Anvil annotations to avoid having
  * to manually define qualifier annotations for each component and to maintain

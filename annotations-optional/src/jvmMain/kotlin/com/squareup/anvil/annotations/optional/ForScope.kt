@@ -7,7 +7,7 @@ import javax.inject.Qualifier as JavaxQualifier
 import me.tatarka.inject.annotations.Qualifier as KotlinInjectQualifier
 
 /**
- * A class based [qualfier](Qualifier).
+ * A class based [qualifier](Qualifier).
  *
  * This can be used in combination with other Anvil annotations to avoid having
  * to manually define qualifier annotations for each component and to maintain
