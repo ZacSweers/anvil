@@ -22,8 +22,6 @@ import javax.inject.Inject
 
 open class PublishConventionPlugin : Plugin<Project> {
   override fun apply(target: Project) {
-    target.extensions.create("publish", PublishExtension::class.java)
-
     target.plugins.apply("com.vanniktech.maven.publish.base")
     target.plugins.apply("org.jetbrains.dokka")
 
@@ -32,6 +30,8 @@ open class PublishConventionPlugin : Plugin<Project> {
 
     val mavenPublishing = target.extensions
       .getByType(MavenPublishBaseExtension::class.java)
+
+    target.extensions.create("publish", PublishExtension::class.java, mavenPublishing)
 
     val pluginPublishId = target.libs.plugins.gradlePublish.pluginId
 
@@ -132,30 +132,18 @@ open class PublishConventionPlugin : Plugin<Project> {
 }
 
 open class PublishExtension @Inject constructor(
-  private val target: Project,
+  private val extension: MavenPublishBaseExtension,
 ) {
 
   fun configurePom(
     artifactId: String,
     pomName: String,
     pomDescription: String,
-    overrideArtifactId: Boolean = true,
   ) {
-
-    target.gradlePublishingExtension
-      .publications.withType(MavenPublication::class.java)
-      .configureEach { publication ->
-
-        // Gradle plugin publications have their own artifactID convention,
-        // and that's handled automatically.
-        if (!publication.name.endsWith("PluginMarkerMaven") && overrideArtifactId) {
-          publication.artifactId = artifactId
-        }
-
-        publication.pom {
-          it.name.set(pomName)
-          it.description.set(pomDescription)
-        }
-      }
+    extension.coordinates(artifactId = artifactId)
+    extension.pom {
+      it.name.set(pomName)
+      it.description.set(pomDescription)
+    }
   }
 }
