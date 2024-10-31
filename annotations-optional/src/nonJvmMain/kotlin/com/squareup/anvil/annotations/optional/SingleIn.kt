@@ -2,6 +2,7 @@ package com.squareup.anvil.annotations.optional
 
 import kotlin.annotation.AnnotationRetention.RUNTIME
 import kotlin.reflect.KClass
+import me.tatarka.inject.annotations.Scope as KotlinInjectScope
 
 /**
  * Identifies a type that the injector only instantiates once for the given
@@ -29,6 +30,7 @@ import kotlin.reflect.KClass
  *
  * See Also: [@Scope](Scope)
  */
+@KotlinInjectScope
 @Retention(RUNTIME)
 public actual annotation class SingleIn(
   /**

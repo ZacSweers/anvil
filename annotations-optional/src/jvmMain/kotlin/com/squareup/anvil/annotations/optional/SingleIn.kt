@@ -4,6 +4,7 @@ import kotlin.annotation.AnnotationRetention.RUNTIME
 import kotlin.reflect.KClass
 import jakarta.inject.Scope as JakartaScope
 import javax.inject.Scope as JavaxScope
+import me.tatarka.inject.annotations.Scope as KotlinInjectScope
 
 /**
  * Identifies a type that the injector only instantiates once for the given
@@ -33,6 +34,7 @@ import javax.inject.Scope as JavaxScope
  */
 @JavaxScope
 @JakartaScope
+@KotlinInjectScope
 @Retention(RUNTIME)
 public actual annotation class SingleIn(
   /**

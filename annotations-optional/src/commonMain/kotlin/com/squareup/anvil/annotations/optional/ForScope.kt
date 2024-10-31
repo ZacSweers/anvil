@@ -2,6 +2,7 @@ package com.squareup.anvil.annotations.optional
 
 import kotlin.annotation.AnnotationRetention.RUNTIME
 import kotlin.reflect.KClass
+import me.tatarka.inject.annotations.Scope as KotlinInjectScope
 
 /**
  * A class based [qualfier](Qualifier).
@@ -23,6 +24,7 @@ import kotlin.reflect.KClass
  * class UserAuthenticator @Inject constructor() : Authenticator
  * ```
  */
+@KotlinInjectScope
 @Retention(RUNTIME)
 public expect annotation class ForScope(
   /**

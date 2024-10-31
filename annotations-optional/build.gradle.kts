@@ -21,6 +21,10 @@ kotlin {
 }
 
 dependencies {
-  jvmMainApi(libs.inject)
-  jvmMainApi(libs.jakarta)
+  commonMainCompileOnly(libs.kotlinInject)
+  // non jvm targets don't support compile only dependencies
+  nonJvmMainApi(libs.kotlinInject)
+
+  jvmMainCompileOnly(libs.inject)
+  jvmMainCompileOnly(libs.jakarta)
 }

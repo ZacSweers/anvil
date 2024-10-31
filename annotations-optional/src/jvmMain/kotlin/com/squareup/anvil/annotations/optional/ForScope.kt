@@ -4,6 +4,7 @@ import kotlin.annotation.AnnotationRetention.RUNTIME
 import kotlin.reflect.KClass
 import jakarta.inject.Qualifier as JakartaQualifier
 import javax.inject.Qualifier as JavaxQualifier
+import me.tatarka.inject.annotations.Qualifier as KotlinInjectQualifier
 
 /**
  * A class based [qualfier](Qualifier).
@@ -27,6 +28,7 @@ import javax.inject.Qualifier as JavaxQualifier
  */
 @JavaxQualifier
 @JakartaQualifier
+@KotlinInjectQualifier
 @Retention(RUNTIME)
 public actual annotation class ForScope(
   /**
