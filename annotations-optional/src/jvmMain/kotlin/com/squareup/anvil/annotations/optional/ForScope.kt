@@ -1,8 +1,9 @@
 package com.squareup.anvil.annotations.optional
 
-import javax.inject.Qualifier
 import kotlin.annotation.AnnotationRetention.RUNTIME
 import kotlin.reflect.KClass
+import jakarta.inject.Qualifier as JakartaQualifier
+import javax.inject.Qualifier as JavaxQualifier
 
 /**
  * A class based [qualfier](Qualifier).
@@ -24,7 +25,8 @@ import kotlin.reflect.KClass
  * class UserAuthenticator @Inject constructor() : Authenticator
  * ```
  */
-@Qualifier
+@JavaxQualifier
+@JakartaQualifier
 @Retention(RUNTIME)
 public actual annotation class ForScope(
   /**

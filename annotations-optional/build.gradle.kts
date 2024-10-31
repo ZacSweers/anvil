@@ -22,4 +22,5 @@ kotlin {
 
 dependencies {
   jvmMainApi(libs.inject)
+  jvmMainApi(libs.jakarta)
 }
