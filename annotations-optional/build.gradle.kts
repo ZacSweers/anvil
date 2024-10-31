@@ -1,5 +1,7 @@
+import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
+
 plugins {
-  id("conventions.library")
+  id("conventions.kmp-library")
   id("conventions.publish")
 }
 
@@ -11,6 +13,13 @@ publish {
   )
 }
 
+kotlin {
+  @OptIn(ExperimentalKotlinGradlePluginApi::class)
+  compilerOptions {
+    freeCompilerArgs.add("-Xexpect-actual-classes")
+  }
+}
+
 dependencies {
-  api(libs.inject)
+  jvmMainApi(libs.inject)
 }

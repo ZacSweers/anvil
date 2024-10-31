@@ -1,6 +1,5 @@
 package com.squareup.anvil.annotations.optional
 
-import javax.inject.Scope
 import kotlin.annotation.AnnotationRetention.RUNTIME
 import kotlin.reflect.KClass
 
@@ -30,9 +29,8 @@ import kotlin.reflect.KClass
  *
  * See Also: [@Scope](Scope)
  */
-@Scope
 @Retention(RUNTIME)
-public annotation class SingleIn(
+public expect annotation class SingleIn(
   /**
    * The marker that identifies this scope.
    */
