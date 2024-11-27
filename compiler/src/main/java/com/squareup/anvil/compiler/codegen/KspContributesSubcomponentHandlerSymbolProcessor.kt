@@ -405,9 +405,18 @@ internal class KspContributesSubcomponentHandlerSymbolProcessor(
               } else {
                 function.asMemberOf(implementingType).returnTypeOrNull()
               }
-            returnTypeToCheck
-              ?.resolveKSClassDeclaration()
-              ?.toClassName() == contributionClassName
+
+            val returnType = returnTypeToCheck?.resolveKSClassDeclaration()
+            if (returnType?.toClassName() == contributionClassName) {
+              return@filter true
+            }
+
+            val isReturningSuperType = returnType != null && contribution.clazz.superTypes.any {
+              it.resolve().resolveKSClassDeclaration() == returnType
+            }
+            if (isReturningSuperType) return@filter true
+
+            false
           }
           .toList()
 
