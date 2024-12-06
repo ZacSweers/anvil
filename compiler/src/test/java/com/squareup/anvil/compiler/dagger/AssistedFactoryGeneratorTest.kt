@@ -303,6 +303,54 @@ public final class AssistedServiceFactory_Impl implements AssistedServiceFactory
     }
   }
 
+  @Test fun `the factory function may require a typealias lambda`() {
+    compile(
+      """
+      package com.squareup.test
+      
+      import dagger.assisted.Assisted
+      import dagger.assisted.AssistedFactory
+      import dagger.assisted.AssistedInject
+      
+      typealias Foo = (Int) -> String
+
+      data class AssistedService @AssistedInject constructor(
+        val int: Int,
+        @Assisted val foo: Foo
+      )
+      
+      @AssistedFactory
+      interface AssistedServiceFactory {
+        fun create(foo: Foo): AssistedService
+      }
+      """,
+    ) {
+      val factoryImplClass = assistedServiceFactory.implClass()
+      val generatedFactoryInstance = assistedService.factoryClass().createInstance(Provider { 5 })
+      val factoryImplInstance = factoryImplClass.createInstance(generatedFactoryInstance)
+
+      val staticMethods = factoryImplClass.declaredMethods.filter { it.isStatic }
+      assertThat(staticMethods).hasSize(2)
+
+      val factoryProvider = staticMethods.single { it.name == "create" }
+        .invoke(null, generatedFactoryInstance) as Provider<*>
+      assertThat(factoryProvider.get()::class.java).isEqualTo(factoryImplClass)
+
+      val newFactoryProvider = staticMethods.single { it.name == "createFactoryProvider" }
+        .invoke(null, generatedFactoryInstance) as dagger.internal.Provider<*>
+      assertThat(newFactoryProvider.get()::class.java).isEqualTo(factoryImplClass)
+
+      val lambdaArg = { num: Int -> num.toString() }
+
+      val assistedServiceInstance = factoryImplClass.declaredMethods
+        .filterNot { it.isStatic }
+        .last { it.name == "create" }
+        .invoke(factoryImplInstance, lambdaArg)
+
+      assertThat(assistedServiceInstance).isEqualTo(assistedService.createInstance(5, lambdaArg))
+    }
+  }
+
   @Test fun `the factory function may require a lambda type`() {
     compile(
       """
