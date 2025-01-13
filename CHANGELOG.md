@@ -3,6 +3,8 @@
 **Unreleased**
 --------------
 
+- Fix missing Jakarta `@Inject`-annotated constructors in factory gen.
+
 0.4.0
 -----
 
