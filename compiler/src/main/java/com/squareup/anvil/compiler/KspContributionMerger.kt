@@ -90,6 +90,7 @@ import com.squareup.kotlinpoet.KModifier.ABSTRACT
 import com.squareup.kotlinpoet.KModifier.OVERRIDE
 import com.squareup.kotlinpoet.NOTHING
 import com.squareup.kotlinpoet.PropertySpec
+import com.squareup.kotlinpoet.TypeName
 import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.joinToCode
 import com.squareup.kotlinpoet.ksp.addOriginatingKSFile
@@ -97,6 +98,7 @@ import com.squareup.kotlinpoet.ksp.toAnnotationSpec
 import com.squareup.kotlinpoet.ksp.toClassName
 import com.squareup.kotlinpoet.ksp.toKModifier
 import com.squareup.kotlinpoet.ksp.writeTo
+import com.squareup.kotlinpoet.tags.TypeAliasTag
 import dagger.Binds
 import dagger.Component
 import dagger.Module
@@ -1043,16 +1045,20 @@ internal class KspContributionMerger(
           addModifiers(visibility)
         }
 
+        fun TypeName.isMergeAnnotation(): Boolean = this == mergeComponentClassName ||
+          this == mergeSubcomponentClassName ||
+          this == mergeModulesClassName ||
+          this == mergeInterfacesClassName
+
         // Copy over original annotations
         // TODO should we maybe just only copy over scope or qualifier annotations?
         addAnnotations(
           mergeAnnotatedClass.resolvableAnnotations
             .map(KSAnnotation::toAnnotationSpec)
             .filterNot {
-              it.typeName == mergeComponentClassName ||
-                it.typeName == mergeSubcomponentClassName ||
-                it.typeName == mergeModulesClassName ||
-                it.typeName == mergeInterfacesClassName
+              val tag = it.typeName.tags[TypeAliasTag::class] as? TypeAliasTag
+
+              it.typeName.isMergeAnnotation() || tag?.abbreviatedType?.isMergeAnnotation() == true
             }
             .asIterable(),
         )
@@ -1656,6 +1662,12 @@ private fun Creator.extend(
     ),
   )
 
+  fun TypeName.isCreatorAnnotation(): Boolean = this == contributesSubcomponentFactoryClassName ||
+    this == mergeComponentFactoryClassName ||
+    this == mergeComponentBuilderClassName ||
+    this == mergeSubcomponentFactoryClassName ||
+    this == mergeSubcomponentBuilderClassName
+
   /*
    // Generate the new creator
 
@@ -1669,12 +1681,9 @@ private fun Creator.extend(
       declaration.resolvableAnnotations
         .map(KSAnnotation::toAnnotationSpec)
         .filterNot {
+          val tag = it.typeName.tags[TypeAliasTag::class] as? TypeAliasTag
           // Don't copy over our custom creator annotations
-          it.typeName == contributesSubcomponentFactoryClassName ||
-            it.typeName == mergeComponentFactoryClassName ||
-            it.typeName == mergeComponentBuilderClassName ||
-            it.typeName == mergeSubcomponentFactoryClassName ||
-            it.typeName == mergeSubcomponentBuilderClassName
+          it.typeName.isCreatorAnnotation() || tag?.abbreviatedType?.isCreatorAnnotation() == true
         }
         .asIterable(),
     )
