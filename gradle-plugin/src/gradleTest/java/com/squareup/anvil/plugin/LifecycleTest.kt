@@ -26,7 +26,7 @@ class LifecycleTest : BaseGradleTest() {
   fun `tasks are compatible with configuration caching when targeting kotlin-jvm`() =
     params
       .distinctBy { it.gradleVersion }
-      .withKspToggle { versions, useKsp ->
+      .withKspToggle { _, useKsp ->
 
         rootProject {
           buildFile {
