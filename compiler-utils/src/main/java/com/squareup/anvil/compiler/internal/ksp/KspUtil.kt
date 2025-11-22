@@ -329,10 +329,13 @@ public fun KSPropertyDeclaration.toPropertySpec(
 }
 
 public fun KSValueParameter.toParameterSpec(): ParameterSpec {
-  return ParameterSpec.builder(name!!.asString(), type.contextualToTypeName())
-    .addAnnotations(
-      resolvableAnnotations.map { it.toAnnotationSpec() }.asIterable(),
-    )
+  val annotations = resolvableAnnotations.mapNotNull { annotation ->
+    annotation.annotationType.resolve().resolveKSClassDeclaration()?.toClassName()
+  }.asIterable()
+
+  return ParameterSpec.builder(name!!.asString(), type.contextualToTypeName()).apply {
+    annotations.forEach(::addAnnotation)
+  }
     .build()
 }
 
