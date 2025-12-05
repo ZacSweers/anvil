@@ -3,6 +3,25 @@
 **Unreleased**
 --------------
 
+0.5.1
+-----
+
+_2025-12-05_
+
+### Deprecation
+
+Following Anvil's move to maintenance mode, this library is now deprecated and recommends adopting [Metro](https://github.com/zacsweers/metro).
+
+This library was always a stopgap solution to unlock K2 support with Anvil semantics. With Anvil ceasing new development in favor of Metro, there's no reason to continue developing this library. Metro is my primary focus now.
+
+I am happy to accept small patches as needed for bugfixes, but otherwise no new features will be happening.
+
+### Changes
+
+- Avoid removed `useK2()` API in legacy compiler plugin.
+
+Special thanks to [@jstewart5000](https://github.com/jstewart5000) for contributing to this release!
+
 0.5.0
 -----
 
