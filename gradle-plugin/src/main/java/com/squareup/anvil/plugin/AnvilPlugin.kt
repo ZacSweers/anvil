@@ -552,7 +552,7 @@ private fun getUseK2Value(options: Any, logger: Logger): Boolean =
   runCatching {
     val useK2Method = options.javaClass.getMethod("getUseK2")
     val useK2Provider = useK2Method.invoke(options) as? Provider<*>
-      ?: return false  // Same behavior as your original
+      ?: return false
 
     useK2Provider.get() as Boolean
   }.getOrElse { e ->
