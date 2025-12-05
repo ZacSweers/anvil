@@ -14,6 +14,7 @@ import org.gradle.api.Project
 import org.gradle.api.Task
 import org.gradle.api.UnknownTaskException
 import org.gradle.api.artifacts.Configuration
+import org.gradle.api.logging.Logger
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.TaskContainer
 import org.gradle.api.tasks.TaskProvider
@@ -111,8 +112,7 @@ internal open class AnvilPlugin : KotlinCompilerPluginSupportPlugin {
     kotlinCompilation: KotlinCompilation<*>,
   ): Provider<List<SubpluginOption>> {
     kotlinCompilation.compilerOptions.options.let {
-      @Suppress("DEPRECATION")
-      val useK2 = it.useK2.get()
+      val useK2 = getUseK2Value(it, kotlinCompilation.project.logger)
       if (useK2 || it.languageVersion.getOrElse(KOTLIN_1_9) >= KOTLIN_2_0) {
         kotlinCompilation.project.logger
           .error(
@@ -534,6 +534,31 @@ private fun addPrefixToSourceSetName(
   "main" -> prefix
   else -> "${prefix}${sourceSetName.capitalize()}"
 }
+
+/**
+ * Determines whether the K2 compiler should be used by attempting to read the `useK2`
+ * property via reflection. This allows compatibility with both Kotlin versions that
+ * expose the property and versions that do not.
+ *
+ * If the property or its provider cannot be accessed, the method safely falls back to the
+ * default behavior (true for Kotlin 2.3.0+).
+ *
+ * @param options The KotlinCompilerOptions instance to inspect.
+ * @param logger The logger used for reporting reflection-related decisions.
+ * @return true if K2 is enabled or defaults to enabled; false only if the property exists
+ *         and explicitly returns false.
+ */
+private fun getUseK2Value(options: Any, logger: Logger): Boolean =
+  runCatching {
+    val useK2Method = options.javaClass.getMethod("getUseK2")
+    val useK2Provider = useK2Method.invoke(options) as? Provider<*>
+      ?: return false
+
+    useK2Provider.get() as Boolean
+  }.getOrElse { e ->
+    logger.info("useK2 reflection check failed, defaulting to true (useK2 = true): ${e.message}")
+    true
+  }
 
 internal fun KotlinCompilation<*>.kaptConfigName(): String {
   return addPrefixToSourceSetName("kapt", sourceSetName())
