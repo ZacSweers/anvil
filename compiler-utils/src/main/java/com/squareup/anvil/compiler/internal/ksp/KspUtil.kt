@@ -330,18 +330,13 @@ public fun KSPropertyDeclaration.toPropertySpec(
 
 public fun KSValueParameter.toParameterSpec(): ParameterSpec {
   // Builds a ParameterSpec while preserving annotation arguments (e.g., @ForScope(SomeScope::class))
-  // and ensuring compatibility with KSP 2.x+ via resolveKSClassDeclaration().
-  val paramBuilder = ParameterSpec.builder(name!!.asString(), type.contextualToTypeName())
-
-  resolvableAnnotations.forEach { annotation ->
-    // Ensure annotation type is resolved to trigger KSP2 compatibility logic
-    annotation.annotationType.resolve().resolveKSClassDeclaration()
-
-    // Preserve all annotation arguments (e.g., KClass values in @ForScope)
-    paramBuilder.addAnnotation(annotation.toAnnotationSpec())
-  }
-
-  return paramBuilder.build()
+  // and ensuring compatibility with KSP 2.x by explicitly resolving annotation types
+  return ParameterSpec.builder(name?.asString().orEmpty(), type.contextualToTypeName()).apply {
+    resolvableAnnotations.forEach { annotation ->
+      annotation.annotationType.resolve().resolveKSClassDeclaration()
+      addAnnotation(annotation.toAnnotationSpec())
+    }
+  }.build()
 }
 
 public fun KSAnnotated.mergeAnnotations(): List<KSAnnotation> {
