@@ -344,7 +344,7 @@ public fun KSValueParameter.toParameterSpec(): ParameterSpec {
       throw KspAnvilException(
         message = "Failed to process annotation ${annotation.annotationType} on parameter '${name?.asString()}': ${e.message}",
         node = this,
-        cause = e
+        cause = e,
       )
     }
   }
