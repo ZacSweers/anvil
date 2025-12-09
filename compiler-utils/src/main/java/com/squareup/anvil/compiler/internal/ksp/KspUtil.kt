@@ -329,14 +329,28 @@ public fun KSPropertyDeclaration.toPropertySpec(
 }
 
 public fun KSValueParameter.toParameterSpec(): ParameterSpec {
-  val annotations = resolvableAnnotations.mapNotNull { annotation ->
-    annotation.annotationType.resolve().resolveKSClassDeclaration()?.toClassName()
-  }.asIterable()
+  // Builds a ParameterSpec while preserving annotation arguments (e.g., @ForScope(SomeScope::class))
+  // and ensuring compatibility with KSP 2.x+ via resolveKSClassDeclaration().
+  val paramBuilder = ParameterSpec.builder(name!!.asString(), type.contextualToTypeName())
 
-  return ParameterSpec.builder(name!!.asString(), type.contextualToTypeName()).apply {
-    annotations.forEach(::addAnnotation)
+  resolvableAnnotations.forEach { annotation ->
+    try {
+      // Ensure annotation type is resolved to trigger KSP2 compatibility logic
+      annotation.annotationType.resolve().resolveKSClassDeclaration()
+
+      // Preserve all annotation arguments (e.g., KClass values in @ForScope)
+      paramBuilder.addAnnotation(annotation.toAnnotationSpec())
+    } catch (e: Exception) {
+      // Throw KspAnvilException with descriptive message when annotation processing fails
+      throw KspAnvilException(
+        message = "Failed to process annotation ${annotation.annotationType} on parameter '${name?.asString()}': ${e.message}",
+        node = this,
+        cause = e
+      )
+    }
   }
-    .build()
+
+  return paramBuilder.build()
 }
 
 public fun KSAnnotated.mergeAnnotations(): List<KSAnnotation> {
