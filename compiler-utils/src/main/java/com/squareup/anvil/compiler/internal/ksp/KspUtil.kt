@@ -334,19 +334,11 @@ public fun KSValueParameter.toParameterSpec(): ParameterSpec {
   val paramBuilder = ParameterSpec.builder(name!!.asString(), type.contextualToTypeName())
 
   resolvableAnnotations.forEach { annotation ->
-    try {
-      // Ensure annotation type is resolved to trigger KSP2 compatibility logic
-      annotation.annotationType.resolve().resolveKSClassDeclaration()
+    // Ensure annotation type is resolved to trigger KSP2 compatibility logic
+    annotation.annotationType.resolve().resolveKSClassDeclaration()
 
-      // Preserve all annotation arguments (e.g., KClass values in @ForScope)
-      paramBuilder.addAnnotation(annotation.toAnnotationSpec())
-    } catch (e: Exception) {
-      throw KspAnvilException(
-        message = "Failed to process annotation ${annotation.annotationType} on parameter '${name?.asString()}': ${e.message}",
-        node = this,
-        cause = e,
-      )
-    }
+    // Preserve all annotation arguments (e.g., KClass values in @ForScope)
+    paramBuilder.addAnnotation(annotation.toAnnotationSpec())
   }
 
   return paramBuilder.build()
