@@ -341,7 +341,6 @@ public fun KSValueParameter.toParameterSpec(): ParameterSpec {
       // Preserve all annotation arguments (e.g., KClass values in @ForScope)
       paramBuilder.addAnnotation(annotation.toAnnotationSpec())
     } catch (e: Exception) {
-      // Throw KspAnvilException with descriptive message when annotation processing fails
       throw KspAnvilException(
         message = "Failed to process annotation ${annotation.annotationType} on parameter '${name?.asString()}': ${e.message}",
         node = this,
