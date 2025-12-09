@@ -345,10 +345,11 @@ public fun KSValueParameter.toParameterSpec(): ParameterSpec {
       val className = resolved.qualifiedName?.asString() ?: return@forEach
       val isAlias = annotation.shortName.getShortName() != resolved.simpleName.getShortName()
 
-      annotationsByClass[className] = if (isAlias && annotation.arguments.isEmpty())
+      annotationsByClass[className] = if (isAlias && annotation.arguments.isEmpty()) {
         AnnotationSpec.builder(resolved.toClassName()).build()
-      else
+     } else {
         annotation.toAnnotationSpec()
+     }
     }
 
     annotationsByClass.values.forEach(::addAnnotation)
