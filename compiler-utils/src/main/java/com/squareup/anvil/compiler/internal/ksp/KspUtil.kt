@@ -31,7 +31,6 @@ import com.squareup.anvil.compiler.internal.mergeInterfacesFqName
 import com.squareup.anvil.compiler.internal.mergeModulesFqName
 import com.squareup.anvil.compiler.internal.mergeSubcomponentFqName
 import com.squareup.anvil.compiler.internal.reference.asClassId
-import com.squareup.kotlinpoet.AnnotationSpec
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.ParameterSpec
@@ -329,31 +328,37 @@ public fun KSPropertyDeclaration.toPropertySpec(
     .build()
 }
 
-/**
- * Converts a KSValueParameter to a ParameterSpec with proper annotation handling.
- *
- * Preserves annotation arguments for annotations like @ForScope that require parameters.
- * Resolves typealias annotations to their actual types for framework validation.
- * Avoids duplicate annotations by tracking unique class names.
- */
 public fun KSValueParameter.toParameterSpec(): ParameterSpec {
+  val annotations = resolvableAnnotations.map { annotation ->
+    annotation.unwrapTypealiases().toAnnotationSpec()
+  }.asIterable()
   return ParameterSpec.builder(name!!.asString(), type.contextualToTypeName()).apply {
-    val annotationsByClass = mutableMapOf<String, AnnotationSpec>()
-
-    resolvableAnnotations.forEach { annotation ->
-      val resolved = annotation.annotationType.resolve().resolveKSClassDeclaration() ?: return@forEach
-      val className = resolved.qualifiedName?.asString() ?: return@forEach
-      val isAlias = annotation.shortName.getShortName() != resolved.simpleName.getShortName()
-
-      annotationsByClass[className] = if (isAlias && annotation.arguments.isEmpty()) {
-        AnnotationSpec.builder(resolved.toClassName()).build()
-     } else {
-        annotation.toAnnotationSpec()
-     }
-    }
-
-    annotationsByClass.values.forEach(::addAnnotation)
+    annotations.forEach(::addAnnotation)
   }.build()
+}
+
+/**
+ * Returns a copy of this annotation with typealiases resolved to their underlying types,
+ * preserving all arguments and ensuring correct framework recognition.
+ */
+private fun KSAnnotation.unwrapTypealiases(): KSAnnotation {
+  val unwrappedType = annotationType.unwrapTypealiases()
+  // delegate to the unwrapped type
+  return object : KSAnnotation by this {
+    override val annotationType: KSTypeReference = unwrappedType
+  }
+}
+
+/**
+ * Resolves the underlying type by recursively unwrapping typealiases.
+ */
+private tailrec fun KSTypeReference.unwrapTypealiases(): KSTypeReference {
+  val resolved = resolve()
+  // Unwrap until we get to the non-aliased type reference.
+  return when (val declaration = resolved.declaration) {
+    is KSTypeAlias -> declaration.type.unwrapTypealiases()
+    else -> this
+  }
 }
 
 public fun KSAnnotated.mergeAnnotations(): List<KSAnnotation> {
