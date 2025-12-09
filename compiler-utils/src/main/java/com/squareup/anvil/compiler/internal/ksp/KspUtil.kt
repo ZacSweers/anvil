@@ -31,6 +31,7 @@ import com.squareup.anvil.compiler.internal.mergeInterfacesFqName
 import com.squareup.anvil.compiler.internal.mergeModulesFqName
 import com.squareup.anvil.compiler.internal.mergeSubcomponentFqName
 import com.squareup.anvil.compiler.internal.reference.asClassId
+import com.squareup.kotlinpoet.AnnotationSpec
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.ParameterSpec
@@ -328,14 +329,29 @@ public fun KSPropertyDeclaration.toPropertySpec(
     .build()
 }
 
+/**
+ * Converts a KSValueParameter to a ParameterSpec with proper annotation handling.
+ *
+ * Preserves annotation arguments for annotations like @ForScope that require parameters.
+ * Resolves typealias annotations to their actual types for framework validation.
+ * Avoids duplicate annotations by tracking unique class names.
+ */
 public fun KSValueParameter.toParameterSpec(): ParameterSpec {
-  // Builds a ParameterSpec while preserving annotation arguments (e.g., @ForScope(SomeScope::class))
-  // and ensuring compatibility with KSP 2.x by explicitly resolving annotation types
-  return ParameterSpec.builder(name?.asString().orEmpty(), type.contextualToTypeName()).apply {
+  return ParameterSpec.builder(name!!.asString(), type.contextualToTypeName()).apply {
+    val annotationsByClass = mutableMapOf<String, AnnotationSpec>()
+
     resolvableAnnotations.forEach { annotation ->
-      annotation.annotationType.resolve().resolveKSClassDeclaration()
-      addAnnotation(annotation.toAnnotationSpec())
+      val resolved = annotation.annotationType.resolve().resolveKSClassDeclaration() ?: return@forEach
+      val className = resolved.qualifiedName?.asString() ?: return@forEach
+      val isAlias = annotation.shortName.getShortName() != resolved.simpleName.getShortName()
+
+      annotationsByClass[className] = if (isAlias && annotation.arguments.isEmpty())
+        AnnotationSpec.builder(resolved.toClassName()).build()
+      else
+        annotation.toAnnotationSpec()
     }
+
+    annotationsByClass.values.forEach(::addAnnotation)
   }.build()
 }
 
