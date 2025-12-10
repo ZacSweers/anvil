@@ -137,10 +137,13 @@ class KspContributionMergerTest {
       componentProcessingMode = ComponentProcessingMode.KSP,
       expectExitCode = KotlinCompilation.ExitCode.OK,
     ) {
-      val factoryClass = classLoader.loadClass("com.squareup.test.MergedComponentInterface\$Factory")
+      val factoryClass = classLoader.loadClass(
+        "com.squareup.test.MergedComponentInterface\$Factory",
+      )
       val createMethod = factoryClass.getMethod("create", Int::class.java)
       val parameter = createMethod.parameters.first()
 
+      // Access all annotations and find the one with correct name
       val annotation = parameter.annotations.first {
         it.annotationClass.qualifiedName == "com.squareup.test.QualifierWithArg"
       }
