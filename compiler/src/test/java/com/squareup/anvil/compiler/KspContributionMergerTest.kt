@@ -105,6 +105,56 @@ class KspContributionMergerTest {
     }
   }
 
+  @Test fun `typealiases are followed with parameters`() {
+    compile(
+      """
+    package com.squareup.test
+
+    import com.squareup.anvil.annotations.MergeComponent
+    import dagger.BindsInstance
+    import javax.inject.Qualifier
+    import kotlin.reflect.KClass
+
+    @Qualifier
+    annotation class QualifierWithArg(val value: KClass<*>)
+
+    typealias CustomMergeComponent = MergeComponent
+    typealias CustomMergeComponentFactory = MergeComponent.Factory
+    typealias CustomBindsInstance = BindsInstance
+    typealias CustomQualifier = QualifierWithArg
+
+    @CustomMergeComponent(Any::class)
+    interface ComponentInterface {
+      @CustomQualifier(String::class)
+      fun value(): Int
+
+      @CustomMergeComponentFactory
+      interface Factory {
+        fun create(@CustomBindsInstance @CustomQualifier(String::class) value: Int): ComponentInterface
+      }
+    }
+    """,
+      componentProcessingMode = ComponentProcessingMode.KSP,
+      expectExitCode = KotlinCompilation.ExitCode.OK,
+    ) {
+      val factoryClass = classLoader.loadClass(
+        "com.squareup.test.MergedComponentInterface\$Factory",
+      )
+      val createMethod = factoryClass.getMethod("create", Int::class.java)
+      val parameter = createMethod.parameters.first()
+
+      // Access all annotations and find the one with correct name
+      val annotation = parameter.annotations.first {
+        it.annotationClass.qualifiedName == "com.squareup.test.QualifierWithArg"
+      }
+
+      val valueMethod = annotation.annotationClass.java.getMethod("value")
+      val valueClass = valueMethod.invoke(annotation) as Class<*>
+
+      assertThat(valueClass).isEqualTo(String::class.java)
+    }
+  }
+
   @Test fun `error type annotations are ignored`() {
     compile(
       """

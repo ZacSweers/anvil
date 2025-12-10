@@ -329,14 +329,36 @@ public fun KSPropertyDeclaration.toPropertySpec(
 }
 
 public fun KSValueParameter.toParameterSpec(): ParameterSpec {
-  val annotations = resolvableAnnotations.mapNotNull { annotation ->
-    annotation.annotationType.resolve().resolveKSClassDeclaration()?.toClassName()
+  val annotations = resolvableAnnotations.map { annotation ->
+    annotation.unwrapTypealiases().toAnnotationSpec()
   }.asIterable()
-
   return ParameterSpec.builder(name!!.asString(), type.contextualToTypeName()).apply {
     annotations.forEach(::addAnnotation)
+  }.build()
+}
+
+/**
+ * Returns a copy of this annotation with typealiases resolved to their underlying types,
+ * preserving all arguments and ensuring correct framework recognition.
+ */
+private fun KSAnnotation.unwrapTypealiases(): KSAnnotation {
+  val unwrappedType = annotationType.unwrapTypealiases()
+  // delegate to the unwrapped type
+  return object : KSAnnotation by this {
+    override val annotationType: KSTypeReference = unwrappedType
   }
-    .build()
+}
+
+/**
+ * Resolves the underlying type by recursively unwrapping typealiases.
+ */
+private tailrec fun KSTypeReference.unwrapTypealiases(): KSTypeReference {
+  val resolved = resolve()
+  // Unwrap until we get to the non-aliased type reference.
+  return when (val declaration = resolved.declaration) {
+    is KSTypeAlias -> declaration.type.unwrapTypealiases()
+    else -> this
+  }
 }
 
 public fun KSAnnotated.mergeAnnotations(): List<KSAnnotation> {
