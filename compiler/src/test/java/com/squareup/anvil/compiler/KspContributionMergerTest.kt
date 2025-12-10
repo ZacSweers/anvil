@@ -141,7 +141,6 @@ class KspContributionMergerTest {
       val createMethod = factoryClass.getMethod("create", Int::class.java)
       val parameter = createMethod.parameters.first()
 
-      // Access all annotations and find the one with correct name
       val annotation = parameter.annotations.first {
         it.annotationClass.qualifiedName == "com.squareup.test.QualifierWithArg"
       }
