@@ -3,6 +3,8 @@
 **Unreleased**
 --------------
 
+- Fix support for generic modules in factory gen.
+
 0.5.2
 -----
 

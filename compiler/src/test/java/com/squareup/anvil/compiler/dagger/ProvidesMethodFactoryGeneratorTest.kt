@@ -1359,6 +1359,68 @@ public final class DaggerModule1_ProvideStringFactory implements Factory<String>
     }
   }
 
+  @Test fun `a factory class is generated for a provider method in a generic module`() {
+    compile(
+      """
+      package com.squareup.test
+
+      import dagger.Module
+      import dagger.Provides
+
+      @Module
+      abstract class DaggerModule1<T : Any> {
+        @Provides fun provideT(): T = throw NotImplementedError()
+      }
+      """,
+    ) {
+      val factoryClass = daggerModule1.moduleFactoryClass("provideT")
+
+      val typeParams = factoryClass.typeParameters
+        .associate { param ->
+          param.name to param.bounds.map { it.typeName }
+        }
+      assertThat(typeParams).containsExactly("T", listOf("java.lang.Object"))
+
+      val constructor = factoryClass.declaredConstructors.single()
+      assertThat(constructor.parameterTypes.toList()).containsExactly(daggerModule1)
+
+      val staticMethods = factoryClass.declaredMethods.filter { it.isStatic }
+      assertThat(staticMethods).hasSize(2)
+    }
+  }
+
+  @Test fun `a factory class is generated for a provider method with parameters in a generic module`() {
+    compile(
+      """
+      package com.squareup.test
+
+      import dagger.Module
+      import dagger.Provides
+
+      @Module
+      abstract class DaggerModule1<T : CharSequence> {
+        @Provides fun provideT(value: T): List<T> = listOf(value)
+      }
+      """,
+    ) {
+      val factoryClass = daggerModule1.moduleFactoryClass("provideT")
+
+      val typeParams = factoryClass.typeParameters
+        .associate { param ->
+          param.name to param.bounds.map { it.typeName }
+        }
+      assertThat(typeParams).containsExactly("T", listOf("java.lang.CharSequence"))
+
+      val constructor = factoryClass.declaredConstructors.single()
+      assertThat(constructor.parameterTypes.toList())
+        .containsExactly(daggerModule1, Provider::class.java)
+        .inOrder()
+
+      val staticMethods = factoryClass.declaredMethods.filter { it.isStatic }
+      assertThat(staticMethods).hasSize(2)
+    }
+  }
+
   @Test fun `a factory class is generated for a provider method with parameters in an object`() {
     /*
 package com.squareup.test;
