@@ -59,10 +59,13 @@ import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.TypeName
 import com.squareup.kotlinpoet.TypeSpec
+import com.squareup.kotlinpoet.TypeVariableName
 import com.squareup.kotlinpoet.asClassName
 import com.squareup.kotlinpoet.jvm.jvmStatic
+import com.squareup.kotlinpoet.ksp.TypeParameterResolver
 import com.squareup.kotlinpoet.ksp.toClassName
 import com.squareup.kotlinpoet.ksp.toTypeParameterResolver
+import com.squareup.kotlinpoet.ksp.toTypeVariableName
 import com.squareup.kotlinpoet.ksp.writeTo
 import dagger.Provides
 import dagger.internal.Factory
@@ -87,6 +90,12 @@ internal object ProvidesMethodFactoryCodeGen : AnvilApplicabilityChecker {
         .filterIsInstance<KSClassDeclaration>()
         .forEach { clazz ->
           val classAndCompanion = clazz.withCompanion()
+          val classTypeParameterResolver = clazz.typeParameters.toTypeParameterResolver()
+          val typeParameters = clazz.typeParameters.map {
+            it.toTypeVariableName(
+              classTypeParameterResolver,
+            )
+          }
           val functions =
             classAndCompanion
               .flatMap {
@@ -108,7 +117,7 @@ internal object ProvidesMethodFactoryCodeGen : AnvilApplicabilityChecker {
                 assertNoDuplicateFunctions(clazz, functions)
               }
               .mapNotNull { function ->
-                CallableReference.from(function)
+                CallableReference.from(function, classTypeParameterResolver)
                   .also { if (it == null) deferred.add(function) }
               }
 
@@ -123,7 +132,7 @@ internal object ProvidesMethodFactoryCodeGen : AnvilApplicabilityChecker {
                 property.getter?.isAnnotationPresent<Provides>() == true
             }
             .mapNotNull { property ->
-              CallableReference.from(property).also {
+              CallableReference.from(property, classTypeParameterResolver).also {
                 if (it == null) {
                   deferred.add(property)
                 }
@@ -162,6 +171,7 @@ internal object ProvidesMethodFactoryCodeGen : AnvilApplicabilityChecker {
                   className,
                   clazz.classKind == ClassKind.OBJECT,
                   declaration,
+                  typeParameters,
                 ).writeTo(env.codeGenerator, aggregating = false, listOf(containingFile))
               }
             }
@@ -194,6 +204,7 @@ internal object ProvidesMethodFactoryCodeGen : AnvilApplicabilityChecker {
 
     private fun CallableReference.Companion.from(
       function: KSFunctionDeclaration,
+      classTypeParameterResolver: TypeParameterResolver,
     ): CallableReference? {
       if (function.extensionReceiver != null) {
         throw KspAnvilException(
@@ -206,8 +217,12 @@ internal object ProvidesMethodFactoryCodeGen : AnvilApplicabilityChecker {
         node = function,
       )
       if (type.isError) return null
+      val functionTypeParameterResolver = function.typeParameters.toTypeParameterResolver(
+        classTypeParameterResolver,
+      )
       val typeName = type.contextualToTypeName(
         function.reportableReturnTypeNode,
+        functionTypeParameterResolver,
       ).withJvmSuppressWildcardsIfNeeded(function, type)
       return CallableReference(
         isInternal = function.getVisibility() == Visibility.INTERNAL,
@@ -215,7 +230,7 @@ internal object ProvidesMethodFactoryCodeGen : AnvilApplicabilityChecker {
         name = function.simpleName.asString(),
         isProperty = false,
         constructorParameters = function.parameters.mapToConstructorParameters(
-          function.typeParameters.toTypeParameterResolver(),
+          functionTypeParameterResolver,
         ) ?: return null,
         type = typeName,
         isNullable = type.isMarkedNullable,
@@ -226,10 +241,12 @@ internal object ProvidesMethodFactoryCodeGen : AnvilApplicabilityChecker {
 
     private fun CallableReference.Companion.from(
       property: KSPropertyDeclaration,
+      classTypeParameterResolver: TypeParameterResolver,
     ): CallableReference? {
       val type = property.type.resolve().takeUnless { it.isError } ?: return null
       val typeName = type.contextualToTypeName(
         property.type,
+        classTypeParameterResolver,
       ).withJvmSuppressWildcardsIfNeeded(property, type)
       return CallableReference(
         isInternal = property.getVisibility() == Visibility.INTERNAL,
@@ -306,12 +323,14 @@ internal object ProvidesMethodFactoryCodeGen : AnvilApplicabilityChecker {
       clazz: ClassReference.Psi,
       declaration: CallableReference,
     ): GeneratedFileWithSources {
+      val typeParameters = clazz.typeParameters.map { it.typeVariableName }
       val spec = generateFactoryClass(
         declaration.isMangled,
         module.mangledNameSuffix(),
         clazz.asClassName(),
         clazz.isObject(),
         declaration,
+        typeParameters,
       )
 
       return createGeneratedFile(
@@ -409,6 +428,7 @@ internal object ProvidesMethodFactoryCodeGen : AnvilApplicabilityChecker {
     moduleClass: ClassName,
     isInObject: Boolean,
     declaration: CallableReference,
+    typeParameters: List<TypeVariableName> = emptyList(),
   ): FileSpec {
     val isCompanionObject = declaration.isCompanionObject
     val isObject = isCompanionObject || isInObject
@@ -444,6 +464,8 @@ internal object ProvidesMethodFactoryCodeGen : AnvilApplicabilityChecker {
     val returnTypeIsNullable = declaration.isNullable
 
     val factoryClass = ClassName(packageName, className)
+    val factoryClassParameterized = factoryClass.optionallyParameterizedByNames(typeParameters)
+    val moduleClassParameterized = moduleClass.optionallyParameterizedByNames(typeParameters)
 
     val byteCodeFunctionName = when {
       useGetPrefix -> "get" + callableName.capitalize()
@@ -452,12 +474,13 @@ internal object ProvidesMethodFactoryCodeGen : AnvilApplicabilityChecker {
     }
 
     val spec = FileSpec.createAnvilSpec(packageName, className) {
-      val canGenerateAnObject = isObject && parameters.isEmpty()
+      val canGenerateAnObject = isObject && parameters.isEmpty() && typeParameters.isEmpty()
       val classBuilder = if (canGenerateAnObject) {
         TypeSpec.objectBuilder(factoryClass)
       } else {
         TypeSpec.classBuilder(factoryClass)
       }
+      typeParameters.forEach { classBuilder.addTypeVariable(it) }
 
       classBuilder.addSuperinterface(Factory::class.asClassName().parameterizedBy(returnType))
         .apply {
@@ -466,7 +489,7 @@ internal object ProvidesMethodFactoryCodeGen : AnvilApplicabilityChecker {
               FunSpec.constructorBuilder()
                 .apply {
                   if (!isObject) {
-                    addParameter("module", moduleClass)
+                    addParameter("module", moduleClassParameterized)
                   }
                   parameters.forEach { parameter ->
                     addParameter(parameter.name, parameter.providerTypeName)
@@ -477,7 +500,7 @@ internal object ProvidesMethodFactoryCodeGen : AnvilApplicabilityChecker {
 
             if (!isObject) {
               addProperty(
-                PropertySpec.builder("module", moduleClass)
+                PropertySpec.builder("module", moduleClassParameterized)
                   .initializer("module")
                   .addModifiers(PRIVATE)
                   .build(),
@@ -514,11 +537,14 @@ internal object ProvidesMethodFactoryCodeGen : AnvilApplicabilityChecker {
               FunSpec.builder("create")
                 .jvmStatic()
                 .apply {
+                  if (typeParameters.isNotEmpty()) {
+                    addTypeVariables(typeParameters)
+                  }
                   if (canGenerateAnObject) {
                     addStatement("return this")
                   } else {
                     if (!isObject) {
-                      addParameter("module", moduleClass)
+                      addParameter("module", moduleClassParameterized)
                     }
                     parameters.forEach { parameter ->
                       addParameter(parameter.name, parameter.providerTypeName)
@@ -529,18 +555,21 @@ internal object ProvidesMethodFactoryCodeGen : AnvilApplicabilityChecker {
                       includeModule = !isObject,
                     )
 
-                    addStatement("return %T($argumentList)", factoryClass)
+                    addStatement("return %T($argumentList)", factoryClassParameterized)
                   }
                 }
-                .returns(factoryClass)
+                .returns(factoryClassParameterized)
                 .build(),
             )
             .addFunction(
               FunSpec.builder(byteCodeFunctionName)
                 .jvmStatic()
                 .apply {
+                  if (typeParameters.isNotEmpty()) {
+                    addTypeVariables(typeParameters)
+                  }
                   if (!isObject) {
-                    addParameter("module", moduleClass)
+                    addParameter("module", moduleClassParameterized)
                   }
 
                   parameters.forEach { parameter ->
