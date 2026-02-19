@@ -3,6 +3,21 @@
 **Unreleased**
 --------------
 
+0.5.3
+-----
+
+_2026-02-18_
+
+### Deprecation
+
+Following Anvil's move to maintenance mode, this library is now deprecated and recommends adopting [Metro](https://github.com/zacsweers/metro).
+
+This library was always a stopgap solution to unlock K2 support with Anvil semantics. With Anvil ceasing new development in favor of Metro, there's no reason to continue developing this library. Metro is my primary focus now.
+
+I am happy to accept small patches as needed for bugfixes, but otherwise no new features will be happening.
+
+### Changes
+
 - Fix support for generic modules in factory gen.
 
 0.5.2
