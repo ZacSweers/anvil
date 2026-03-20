@@ -18,8 +18,12 @@ import org.gradle.api.logging.Logger
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.TaskContainer
 import org.gradle.api.tasks.TaskProvider
+import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
+import org.jetbrains.kotlin.gradle.dsl.KotlinProjectExtension
+import org.jetbrains.kotlin.gradle.dsl.KotlinSingleTargetExtension
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_1_9
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_0
+import org.jetbrains.kotlin.gradle.dsl.kotlinExtension
 import org.jetbrains.kotlin.gradle.internal.KaptGenerateStubsTask
 import org.jetbrains.kotlin.gradle.plugin.FilesSubpluginOption
 import org.jetbrains.kotlin.gradle.plugin.KaptExtension
@@ -98,12 +102,60 @@ internal open class AnvilPlugin : KotlinCompilerPluginSupportPlugin {
         getConfiguration(target, "main").extendsFrom(commonConfiguration)
       }
     }
+
+    target.afterEvaluate {
+      target.kotlinExtension.targets
+        .flatMap { it.compilations }
+        .forEach { kotlinCompilation ->
+          val variant = getVariant(kotlinCompilation)
+          val variantFilter = variant.variantFilter
+
+          if (!variantFilter.generateDaggerFactories &&
+            variantFilter.generateDaggerFactoriesOnly
+          ) {
+            throw GradleException(
+              "You cannot set generateDaggerFactories to false and generateDaggerFactoriesOnly " +
+                "to true at the same time for variant ${variant.name}.",
+            )
+          }
+
+          if (!variantFilter.generateDaggerFactoriesOnly) {
+            target.dependencies.add(
+              kotlinCompilation.compileOnlyConfigurationName,
+              "$GROUP:annotations:$VERSION",
+            )
+            kotlinCompilation.substituteDependencies(
+              target,
+              "com.squareup.anvil:annotations",
+              "$GROUP:annotations",
+            )
+          }
+          if (variantFilter.addOptionalAnnotations) {
+            target.dependencies.add(
+              kotlinCompilation.compileOnlyConfigurationName,
+              "$GROUP:annotations-optional:$VERSION",
+            )
+            kotlinCompilation.substituteDependencies(
+              target,
+              "com.squareup.anvil:annotations-optional",
+              "$GROUP:annotations-optional",
+            )
+          }
+        }
+    }
   }
 
   override fun isApplicable(kotlinCompilation: KotlinCompilation<*>): Boolean {
     return when (kotlinCompilation.platformType) {
-      // If the variant is ignored, then don't apply the compiler plugin.
-      androidJvm, jvm -> !getVariant(kotlinCompilation).variantFilter.ignore
+      androidJvm, jvm -> {
+        val variantFilter = getVariant(kotlinCompilation).variantFilter
+        if (variantFilter.useKspBackend || variantFilter.useKspComponentMergingBackend) {
+          false
+        } else {
+          // If the variant is ignored, then don't apply the compiler plugin.
+          !variantFilter.ignore
+        }
+      }
       else -> false
     }
   }
@@ -125,15 +177,6 @@ internal open class AnvilPlugin : KotlinCompilerPluginSupportPlugin {
     val variant = getVariant(kotlinCompilation)
     val project = variant.project
 
-    if (!variant.variantFilter.generateDaggerFactories &&
-      variant.variantFilter.generateDaggerFactoriesOnly
-    ) {
-      throw GradleException(
-        "You cannot set generateDaggerFactories to false and generateDaggerFactoriesOnly " +
-          "to true at the same time for variant ${variant.name}.",
-      )
-    }
-
     // Make the kotlin compiler classpath extend our configurations to pick up our extra
     // generators.
     project.configurations.getByName(variant.compilerPluginClasspathName)
@@ -143,25 +186,6 @@ internal open class AnvilPlugin : KotlinCompilerPluginSupportPlugin {
 
     if (!variant.variantFilter.generateDaggerFactoriesOnly) {
       disableCorrectErrorTypes(variant)
-
-      kotlinCompilation.dependencies {
-        compileOnly("$GROUP:annotations:$VERSION")
-      }
-      kotlinCompilation.substituteDependencies(
-        project,
-        "com.squareup.anvil:annotations",
-        "$GROUP:annotations",
-      )
-    }
-    if (variant.variantFilter.addOptionalAnnotations) {
-      kotlinCompilation.dependencies {
-        compileOnly("$GROUP:annotations-optional:$VERSION")
-      }
-      kotlinCompilation.substituteDependencies(
-        project,
-        "com.squareup.anvil:annotations-optional",
-        "$GROUP:annotations-optional",
-      )
     }
 
     // Notice that we use the name of the variant as a directory name. Generated code
@@ -456,6 +480,13 @@ private val agpPlugins = listOf(
   "com.android.test",
   "com.android.dynamic-feature",
 )
+
+private val KotlinProjectExtension.targets: Iterable<KotlinTarget>
+  get() = when (this) {
+    is KotlinSingleTargetExtension<*> -> listOf(this.target)
+    is KotlinMultiplatformExtension -> targets
+    else -> error("Unexpected 'kotlin' extension $this")
+  }
 
 private const val KAPT_PLUGIN_ID = "org.jetbrains.kotlin.kapt"
 
